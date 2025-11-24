@@ -47,3 +47,27 @@ def test_get_states_data_serialises_numeric_fields() -> None:
     _, serialized = lucia.get_states_data()
 
     assert serialized == '1\n1 1 1'
+
+
+def test_lucia_title_filled() -> None:
+    """The Lucia title property should return the correct string."""
+    lucia = Lucia.__new__(Lucia)
+    lucia.notebook = cast(Any, SimpleNamespace(molecule_data={}, dalton_data={}))
+
+    lucia.notebook.molecule_data['geom_label'] = 'geom'
+    lucia.notebook.dalton_data['basis'] = 'basis'
+    lucia.notebook.dalton_data['description'] = 'desc'
+
+    assert lucia.get_title() == 'geom\nbasis\ndesc'
+
+
+def test_lucia_title_empty() -> None:
+    """The Lucia title property should return the correct string."""
+    lucia = Lucia.__new__(Lucia)
+    lucia.notebook = cast(Any, SimpleNamespace(molecule_data={}, dalton_data={}))
+
+    lucia.notebook.molecule_data['geom_label'] = ''
+    lucia.notebook.dalton_data['basis'] = ''
+    lucia.notebook.dalton_data['description'] = ''
+
+    assert lucia.get_title() == 'geometry\nbasis\ndescription'

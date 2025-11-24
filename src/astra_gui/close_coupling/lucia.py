@@ -751,9 +751,9 @@ class Lucia(CcNotebookPage):
             Title block describing geometry, basis, and description.
         """
         title_lines = [
-            self.notebook.molecule_data['geom_label'],
-            self.notebook.dalton_data['basis'],
-            self.notebook.dalton_data['description'],
+            self.notebook.molecule_data['geom_label'] or 'geometry',
+            self.notebook.dalton_data['basis'] or 'basis',
+            self.notebook.dalton_data['description'] or 'description',
         ]
 
         return '\n'.join(title_lines)
