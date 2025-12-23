@@ -566,11 +566,15 @@ class Structural(TiNotebookPage):
 
                     susc_dp_length_vals = ','.join([self.dp_labels[ind] for ind in range(3) if susc_dp_vals[ind]])
                     lines.extend([
-                        f'astraDipoleTransition -gif ASTRA.INP -op {susc_dp_length_vals} '
-                        f'-ketsym {susc_entries[0]} -trans bb {cap_text}',
-                        f'astraSusceptibility -gif ASTRA.INP -op {susc_dp_length_vals} '
-                        f'-ketsym {susc_entries[0]} -trans bb -emin {susc_entries[1]} '
-                        f'-emax {susc_entries[2]} -ne {susc_entries[3]} {cap_text}',
+                        (
+                            f'astraDipoleTransition -gif ASTRA.INP -op {susc_dp_length_vals} '
+                            f'-ketsym {susc_entries[0]} -trans bb {cap_text}'
+                        ),
+                        (
+                            f'astraSusceptibility -gif ASTRA.INP -op {susc_dp_length_vals} '
+                            f'-ketsym {susc_entries[0]} -trans bb -emin {susc_entries[1]} '
+                            f'-emax {susc_entries[2]} -ne {susc_entries[3]} {cap_text}'
+                        ),
                     ])
 
                 if any(susc_dp_vals[3:]):
@@ -579,11 +583,15 @@ class Structural(TiNotebookPage):
 
                     susc_dp_velocity_vals = ','.join([self.dp_labels[ind] for ind in range(3, 6) if susc_dp_vals[ind]])
                     lines.extend([
-                        f'astraDipoleTransition -gif ASTRA.INP -op {susc_dp_velocity_vals} '
-                        f'-ketsym {susc_entries[0]} -trans bb {cap_text}',
-                        f'astraSusceptibility -gif ASTRA.INP -op {susc_dp_velocity_vals} '
-                        f'-ketsym {susc_entries[0]} -trans bb -emin {susc_entries[1]} '
-                        f'-emax {susc_entries[2]} -ne {susc_entries[3]} {cap_text}',
+                        (
+                            f'astraDipoleTransition -gif ASTRA.INP -op {susc_dp_velocity_vals} '
+                            f'-ketsym {susc_entries[0]} -trans bb {cap_text}'
+                        ),
+                        (
+                            f'astraSusceptibility -gif ASTRA.INP -op {susc_dp_velocity_vals} '
+                            f'-ketsym {susc_entries[0]} -trans bb -emin {susc_entries[1]} '
+                            f'-emax {susc_entries[2]} -ne {susc_entries[3]} {cap_text}'
+                        ),
                     ])
 
         return self.add_idle_thread_and_join_lines(lines)

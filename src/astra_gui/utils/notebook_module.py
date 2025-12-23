@@ -316,8 +316,7 @@ class NotebookPage(ttk.Frame, ABC, Generic[Nb]):
                 lines = stdout.split('\n')
             else:
                 try:
-                    with Path(proc_stat_file).open('r') as f:
-                        lines = f.read().split('\n')
+                    lines = Path(proc_stat_file).read_text().split('\n')
                 except FileNotFoundError:
                     if system() == 'Darwin':
                         logger.warning(
@@ -580,8 +579,7 @@ class NotebookPage(ttk.Frame, ABC, Generic[Nb]):
 
             if self.ssh_client:
                 remote_command = (
-                    f'cd {self.controller.running_directory} && '
-                    f'bash -l -c "nohup ./{script_path} > nohup.out 2>&1 &"'
+                    f'cd {self.controller.running_directory} && bash -l -c "nohup ./{script_path} > nohup.out 2>&1 &"'
                 )
                 logger.info('Background run (remote): %s', remote_command)
                 stdout, stderr, exit_code = self.ssh_client.run_remote_command(remote_command)
