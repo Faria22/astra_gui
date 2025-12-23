@@ -6,7 +6,7 @@ import tkinter as tk
 from collections import Counter
 from functools import partial
 from pathlib import Path
-from tkinter import messagebox, ttk
+from tkinter import ttk
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -337,13 +337,6 @@ class Molecule(CcNotebookPage):
 
     def plot_molecule(self) -> None:
         """Render the molecule via Molden if the environment supports it."""
-        if not self.ssh_client and self.controller.cur_os == 'Linux':
-            messagebox.showerror(
-                'Plotting is not available!',
-                'Plotting is not available on Linux without SSH connection',
-            )
-            return
-
         atoms_table_data = self.atoms_table.get()
 
         if np.all(atoms_table_data == ''):  # noqa: PLC1901

@@ -161,13 +161,6 @@ class Lucia(CcNotebookPage):
 
     def plot_orbitals(self) -> None:
         """Launch the orbitals plotter when the required data is available."""
-        if self.controller.cur_os == 'Linux':
-            warning_popup(
-                """Plotting orbitals is not supported while running the GUI locally on Linux.
-                   Please connect via ssh for this feature.""",
-            )
-            return
-
         if not (self.path_exists(self.MOLDEN_FILE) and self.path_exists(Dalton.OUTPUT_FILE)):
             missing_output_popup('Dalton')
             return
