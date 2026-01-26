@@ -19,7 +19,7 @@ def build_parser() -> argparse.ArgumentParser:
     """
     parser = argparse.ArgumentParser()
     parser.add_argument('path', nargs='?', default=None, action='store', help='Path to run the GUI on (optional)')
-    parser.add_argument('--version', action='version', version=f'%(prog)s {__version__}')
+    parser.add_argument('-V', '--version', action='version', version=f'%(prog)s {__version__}')
     logging_group = parser.add_mutually_exclusive_group()
     logging_group.add_argument('-db', '--debug', action='store_true', help='Enable debug logging output')
     logging_group.add_argument('-v', '--verbose', action='store_true', help='Show info level logging output')
