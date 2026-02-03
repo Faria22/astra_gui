@@ -316,8 +316,7 @@ class NotebookPage(ttk.Frame, ABC, Generic[Nb]):
                 lines = stdout.split('\n')
             else:
                 try:
-                    with Path(proc_stat_file).open('r') as f:
-                        lines = f.read().split('\n')
+                    lines = Path(proc_stat_file).read_text().split('\n')
                 except FileNotFoundError:
                     if system() == 'Darwin':
                         logger.warning(

@@ -19,6 +19,7 @@ from astra_gui.utils.popup_module import (
     missing_output_popup,
     missing_required_calculation_popup,
     required_field_popup,
+    save_success_popup,
     warning_popup,
 )
 from astra_gui.utils.required_fields_module import RequiredFields
@@ -292,7 +293,7 @@ class Lucia(CcNotebookPage):
 
             error_string += '\nUpdating LUCIA.INP and running Hamiltonian calculation again.'
 
-            self.save()
+            self.save(show_popup=False)
 
             if self.sa_var.get():
                 self.run_astra_setup('-run eht --sa', 'State average')
@@ -758,7 +759,7 @@ class Lucia(CcNotebookPage):
 
         return '\n'.join(title_lines)
 
-    def save(self) -> None:
+    def save(self, show_popup: bool = True) -> None:
         """Validate the Lucia form and update the associated input files."""
 
         @dataclass
@@ -812,6 +813,8 @@ class Lucia(CcNotebookPage):
             commands['lz2'] = 'LZ2'
 
         self.save_file(self.LUCIA_FILE, commands, '*', blank_lines=False)
+        if show_popup:
+            save_success_popup(f'{self.label} inputs saved successfully.')
 
     def save_sa(self) -> None:
         """Persist the state-averaged Lucia configuration to disk."""

@@ -375,8 +375,8 @@ class Astra(tk.Tk):
 
     def get_process_from_notebooks(self, action: str, *args, **kwargs) -> None:
         """Get action from all the notebooks."""
-        for _notebook in self.notebooks:
-            getattr(_notebook, action)(*args, **kwargs)
+        for notebook in self.notebooks:
+            getattr(notebook, action)(*args, **kwargs)
 
     @log_operation('erasing in all notebooks')
     def erase(self) -> None:

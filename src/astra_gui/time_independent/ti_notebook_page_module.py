@@ -12,7 +12,7 @@ import numpy as np
 
 from astra_gui.utils.font_module import bold_font
 from astra_gui.utils.notebook_module import NotebookPage
-from astra_gui.utils.popup_module import missing_symmetry_popup, required_field_popup
+from astra_gui.utils.popup_module import missing_symmetry_popup, required_field_popup, save_success_popup
 from astra_gui.utils.scrollable_module import ScrollableFrame, ScrollableTreeview
 
 if TYPE_CHECKING:
@@ -242,6 +242,7 @@ class TiNotebookPage(NotebookPage['TimeIndependentNotebook'], ABC):
             return
 
         self.save_script(self.SCRIPT_FILE, commands, f'{self.label} calculation', convert_cs_irreps=True)
+        save_success_popup(f'{self.label} inputs saved successfully.')
 
     def run(self) -> None:
         """Execute the notebook script using the shared runner."""

@@ -9,6 +9,7 @@ from pathlib import Path
 from tkinter import ttk
 from typing import TYPE_CHECKING, cast
 
+from astra_gui.utils.popup_module import save_success_popup
 from astra_gui.utils.required_fields_module import RequiredFields
 
 from .cc_notebook_page_module import CcNotebookPage
@@ -356,6 +357,7 @@ class Dalton(CcNotebookPage):
                 self.notebook.dalton_data[occ_option] = ''
 
         self.save_file(self.DALTON_FILE, self.notebook.dalton_data, '!', blank_lines=False)
+        save_success_popup(f'{self.label} inputs saved successfully.')
 
     def erase(self) -> None:
         """Reset Dalton form fields to their defaults."""

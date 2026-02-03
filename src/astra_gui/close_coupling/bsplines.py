@@ -14,6 +14,7 @@ from astra_gui.utils.popup_module import (
     missing_required_calculation_popup,
     missing_required_file_popup,
     required_field_popup,
+    save_success_popup,
     warning_popup,
 )
 from astra_gui.utils.required_fields_module import RequiredFields
@@ -170,7 +171,7 @@ class Bsplines(CcNotebookPage):
         self.num_bspline_entry.delete(0, tk.END)
         self.erase_plot_parameters()
 
-    def save(self) -> None:
+    def save(self, show_popup: bool = True) -> None:
         """Validate the current configuration and write all required input files."""
         # Saving EXTERNAL_BASIS_BSPLINES.INP
 
@@ -344,6 +345,8 @@ class Bsplines(CcNotebookPage):
 
             if self.path_exists(self.PRISM_FOLDER):
                 self.remove_path(self.PRISM_FOLDER)
+        if show_popup:
+            save_success_popup(f'{self.label} inputs saved successfully.')
 
     def load(self) -> None:
         """Populate the form from existing Astra or PRISM files."""

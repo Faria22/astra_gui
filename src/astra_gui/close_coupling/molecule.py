@@ -14,7 +14,7 @@ from moldenViz import Plotter
 
 from astra_gui.utils.font_module import title_font
 from astra_gui.utils.notebook_module import NotebookPage
-from astra_gui.utils.popup_module import required_field_popup
+from astra_gui.utils.popup_module import required_field_popup, save_success_popup
 from astra_gui.utils.symmetry_module import Symmetry
 from astra_gui.utils.table_module import Table
 
@@ -334,6 +334,7 @@ class Molecule(CcNotebookPage):
         )
         self.notebook.molecule_data['number_atoms'] = np.shape(self.get_all_atoms()[1])[0]
         self.notebook.molecule_data['linear_molecule'] = self.is_molecule_linear()
+        save_success_popup(f'{self.label} inputs saved successfully.')
 
     def plot_molecule(self) -> None:
         """Render the molecule via Molden if the environment supports it."""

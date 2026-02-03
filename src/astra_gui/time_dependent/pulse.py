@@ -13,7 +13,7 @@ import numpy as np
 
 from astra_gui.utils.font_module import bold_font
 from astra_gui.utils.notebook_module import NotebookPage
-from astra_gui.utils.popup_module import invalid_input_popup, warning_popup
+from astra_gui.utils.popup_module import invalid_input_popup, save_success_popup, warning_popup
 from astra_gui.utils.required_fields_module import RequiredFields
 from astra_gui.utils.table_module import Table
 
@@ -1153,6 +1153,7 @@ class PulsePage(TdNotebookPage):
 
         for pulse_name, pulse_tabulation_data in pulse_tabulation.items():
             self.save_file_from_blank(Path(f'{pulse_name}.DAT'), pulse_tabulation_data)
+        save_success_popup(f'{self.label} inputs saved successfully.')
 
     def print_irrep(self, _new_sym: bool = False) -> None:
         """Relay symmetry changes to both pulse configuration frames."""
