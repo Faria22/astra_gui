@@ -88,6 +88,16 @@ def completed_calculation_popup(message: str) -> None:
     messagebox.showinfo('Completed Calculation!', message)
 
 
+def started_calculation_popup(message: str) -> None:
+    """Display a start message for long-running calculations."""
+    messagebox.showinfo('Calculation Started', message)
+
+
+def save_success_popup(message: str) -> None:
+    """Display a confirmation message after saving files."""
+    messagebox.showinfo('Files Saved', message)
+
+
 def missing_script_file_popup(name: str) -> None:
     """Inform that a required script file has not been saved yet."""
     messagebox.showerror('Missing script file!', f'Please save the script for {name} before running!')

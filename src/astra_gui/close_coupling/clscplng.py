@@ -12,7 +12,12 @@ from typing import TYPE_CHECKING, cast
 import numpy as np
 
 from astra_gui.utils.font_module import title_font
-from astra_gui.utils.popup_module import invalid_input_popup, missing_required_calculation_popup, required_field_popup
+from astra_gui.utils.popup_module import (
+    invalid_input_popup,
+    missing_required_calculation_popup,
+    required_field_popup,
+    save_success_popup,
+)
 from astra_gui.utils.required_fields_module import RequiredFields
 from astra_gui.utils.scrollable_module import ScrollableFrame
 
@@ -224,9 +229,10 @@ class Clscplng(CcNotebookPage):
 
         bsplines_page = cast('Bsplines', self.notebook.pages[4])
         if self.path_exists(bsplines_page.BSPLINES_INPUT_FILE):
-            bsplines_page.save()
+            bsplines_page.save(show_popup=False)
 
         self.get_cc_data()
+        save_success_popup(f'{self.label} inputs saved successfully.')
 
     def load(self) -> None:
         """Populate the form based on an existing CLSCPLNG.INP file."""

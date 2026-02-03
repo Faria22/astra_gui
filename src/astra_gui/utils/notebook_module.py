@@ -27,6 +27,7 @@ from .popup_module import (
     invalid_input_popup,
     missing_script_file_popup,
     required_field_popup,
+    started_calculation_popup,
 )
 from .symmetry_module import Symmetry
 
@@ -576,6 +577,10 @@ class NotebookPage(ttk.Frame, ABC, Generic[Nb]):
                     return
                 if not run[0]:
                     return
+            self.controller.after(
+                0,
+                lambda: started_calculation_popup(f'{script_name} started running.'),
+            )
 
             if self.ssh_client:
                 remote_command = (
