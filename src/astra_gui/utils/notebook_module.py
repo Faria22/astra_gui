@@ -25,9 +25,9 @@ from .popup_module import (
     completed_calculation_popup,
     idle_processor_popup,
     invalid_input_popup,
-    started_calculation_popup,
     missing_script_file_popup,
     required_field_popup,
+    started_calculation_popup,
 )
 from .symmetry_module import Symmetry
 
