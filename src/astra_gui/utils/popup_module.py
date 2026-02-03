@@ -88,6 +88,11 @@ def completed_calculation_popup(message: str) -> None:
     messagebox.showinfo('Completed Calculation!', message)
 
 
+def started_calculation_popup(message: str) -> None:
+    """Display a start message for long-running calculations."""
+    messagebox.showinfo('Calculation Started', message)
+
+
 def save_success_popup(message: str) -> None:
     """Display a confirmation message after saving files."""
     messagebox.showinfo('Files Saved', message)
