@@ -87,6 +87,16 @@ class Pulse:
                 )
                 return
 
+        nonzero_attributes = {
+            'central frequency': self.freq,
+            'FWHM': self.fwhm,
+            'intensity': self.intensity,
+        }
+        for label, value in nonzero_attributes.items():
+            if value == 0:
+                warning_popup(f'Invalid value for {label} for {self.name}: should be nonzero.')
+                return
+
         self.good_parameters = True
 
     def pulse_string(self) -> str:
@@ -336,6 +346,17 @@ class PulseParameterFrame(ttk.Frame, ABC):
         self.hover_widget = NotebookPage.hover_widget
         self.check_field_entries = NotebookPage.check_field_entries
 
+    @staticmethod
+    def _validate_pulses(pulses: Pulses) -> bool:
+        """Return ``True`` only when all pulses passed parameter validation.
+
+        Returns
+        -------
+        bool
+            Whether every pulse has valid nonzero frequency/FWHM/intensity.
+        """
+        return all(pulse.good_parameters for pulse in pulses.pulses)
+
     @abstractmethod
     def save(
         self,
@@ -519,6 +540,9 @@ class PumpProbeFrame(PulseParameterFrame):
                 for n, single_probe_data in enumerate(probe_data)
             ],
         )
+
+        if not self._validate_pulses(pump) or not self._validate_pulses(probe):
+            return None
 
         pump_probe_pulses = PumpProbePulses(pump, probe, np.arange(min_tau, max_tau + delta_tau, delta_tau))
 
@@ -900,6 +924,9 @@ class CustomPulseFrame(PulseParameterFrame):
             [Pulse(pulse_data[0], f'pulse_{n}', *pulse_data[1:]) for n, pulse_data in enumerate(pulse_data)],
         )
 
+        if not self._validate_pulses(pulses):
+            return
+
         pulse_min_time, pulse_max_time = pulses.get_initial_and_final_times()
 
         self.erase_simulation_parameters()
@@ -931,6 +958,9 @@ class CustomPulseFrame(PulseParameterFrame):
             'pulses',
             [Pulse(pulse_data[0], f'pulse_{n}', *pulse_data[1:]) for n, pulse_data in enumerate(pulse_data)],
         )
+
+        if not self._validate_pulses(pulses):
+            return None
 
         pulse_data = {
             'type': 'custom',

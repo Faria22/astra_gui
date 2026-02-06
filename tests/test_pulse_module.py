@@ -189,3 +189,30 @@ def test_invalid_pulse_shape_triggers_popup(monkeypatch: pytest.MonkeyPatch) -> 
 
     assert calls, 'Expected invalid_input_popup to be called'
     assert getattr(pulse, 'good_parameters', False) is False
+
+
+@pytest.mark.parametrize(
+    ('field', 'value'),
+    [
+        ('frequency', 0.0),
+        ('fwhm', 0.0),
+        ('intensity', 0.0),
+    ],
+)
+def test_zero_frequency_fwhm_or_intensity_is_rejected(
+    monkeypatch: pytest.MonkeyPatch,
+    field: str,
+    value: float,
+) -> None:
+    """Pulse validation should reject zero values for required nonzero fields."""
+    calls: list[str] = []
+
+    def fake_popup(message: str) -> None:
+        calls.append(message)
+
+    monkeypatch.setattr('astra_gui.time_dependent.pulse.warning_popup', fake_popup)
+
+    pulse = make_gaussian_pulse(**{field: value})
+
+    assert calls, 'Expected warning_popup to be called'
+    assert pulse.good_parameters is False
