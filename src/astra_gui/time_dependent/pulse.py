@@ -377,7 +377,7 @@ class PumpProbeFrame(PulseParameterFrame):
             pump_frame,
             self.PULSE_PARAMETER_COLUMNS,
             default_values=['0.0'] + [''] * (len(self.PULSE_PARAMETER_COLUMNS) - 1),
-            height=150,
+            height=130,
         )
 
         # Probe
@@ -396,7 +396,7 @@ class PumpProbeFrame(PulseParameterFrame):
             probe_frame,
             probe_columns,
             default_values=['0.0'] + [''] * (len(probe_columns) - 1),
-            height=150,
+            height=130,
         )
 
         # Simulation Parameters
