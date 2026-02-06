@@ -144,13 +144,22 @@ def test_pulses_collection_formats_and_bounds() -> None:
 def test_pump_probe_sequences_shift_probe_and_emit_execute_block() -> None:
     """Pump-probe helpers should produce consistent per-delay blocks."""
     pump = Pulses('pump_train', [make_gaussian_pulse(name='pump')])
-    probe = Pulses('probe_train', [make_cosine_pulse(name='probe', time=0.0)])
+    probe = Pulses(
+        'probe_train',
+        [
+            make_cosine_pulse(name='probe_0', time=-0.25),
+            make_cosine_pulse(name='probe_1', time=0.5),
+        ],
+    )
     delays = np.array([-1.0, 1.0])
 
     pump_probe = PumpProbePulses(pump, probe, delays)
     sequence_lines = pump_probe.pump_probe_string().splitlines()
     assert sequence_lines[0].startswith('[pump_probe_-1.0]{pump_train;')
-    assert 'probe' in sequence_lines[0]
+    assert '(C -1.25 ' in sequence_lines[0]
+    assert '(C -0.5 ' in sequence_lines[0]
+    assert '(C 0.75 ' in sequence_lines[1]
+    assert '(C 1.5 ' in sequence_lines[1]
     assert pump_probe.execute_string() == 'EXECUTE{pump_train;pump_probe_-1.0;pump_probe_1.0;}'
 
     start, stop = pump_probe.get_initial_and_final_times()

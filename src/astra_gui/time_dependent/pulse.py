@@ -232,6 +232,31 @@ class PumpProbePulses:
         self.probe = probe
         self.time_delays = time_delays
 
+    @staticmethod
+    def _probe_absolute_time(probe_pulse: Pulse, time_delay: float) -> float:
+        """Return the absolute probe center time for a given delay.
+
+        Returns
+        -------
+        float
+            Probe pulse center time in absolute coordinates.
+        """
+        return time_delay + probe_pulse.time
+
+    def _probe_parameter_string(self, probe_pulse: Pulse, time_delay: float) -> str:
+        """Return serialised probe parameters using the delayed center time.
+
+        Returns
+        -------
+        str
+            ASTRA-formatted pulse parameters with the shifted center time.
+        """
+        absolute_time = self._probe_absolute_time(probe_pulse, time_delay)
+        return (
+            f'({probe_pulse.shape} {absolute_time} {probe_pulse.freq} {probe_pulse.fwhm} '
+            f'{probe_pulse.cep} {probe_pulse.intensity} {probe_pulse.theta} {probe_pulse.phi})'
+        )
+
     def probe_string(self, time_delay: float) -> str:
         """Return the parameter strings for probe pulses at the given delay.
 
@@ -240,11 +265,7 @@ class PumpProbePulses:
         str
             Concatenated parameter strings for delay-shifted probe pulses.
         """
-        probe_parameters = []
-        for probe_pulse in self.probe.pulses:
-            probe_pulse.time = time_delay
-            probe_parameters.append(probe_pulse.parameter_string())
-
+        probe_parameters = [self._probe_parameter_string(probe_pulse, time_delay) for probe_pulse in self.probe.pulses]
         return ';'.join(probe_parameters)
 
     def pump_probe_string(self) -> str:
@@ -284,11 +305,10 @@ class PumpProbePulses:
 
         for time_delay in self.time_delays[[0, -1]]:
             for probe_pulse in self.probe.pulses:
-                probe_pulse.time = time_delay
-
-            probe_min_time, probe_max_time = self.probe.get_initial_and_final_times()
-            min_time = min(min_time, probe_min_time)
-            max_time = max(max_time, probe_max_time)
+                probe_time = self._probe_absolute_time(probe_pulse, time_delay)
+                dt = probe_pulse.get_zero_envelope_time()
+                min_time = min(min_time, probe_time - dt)
+                max_time = max(max_time, probe_time + dt)
 
         return min_time, max_time
 
@@ -371,7 +391,13 @@ class PumpProbeFrame(PulseParameterFrame):
         self.probe_shape_combo.grid(row=1, column=1)
         probe_frame = ttk.Frame(self)
         probe_frame.grid(row=3, column=0, columnspan=10, sticky='w')
-        self.probe_table = Table(probe_frame, self.PULSE_PARAMETER_COLUMNS[1:], height=150)
+        probe_columns = ['Relative central time [au]', *self.PULSE_PARAMETER_COLUMNS[1:]]
+        self.probe_table = Table(
+            probe_frame,
+            probe_columns,
+            default_values=['0.0'] + [''] * (len(probe_columns) - 1),
+            height=150,
+        )
 
         # Simulation Parameters
         ttk.Label(self, text='Simulation Parameters', font=bold_font).grid(
@@ -488,7 +514,6 @@ class PumpProbeFrame(PulseParameterFrame):
                 Pulse(
                     self.probe_shape_combo.get(),
                     f'probe_{n}',
-                    0,
                     *single_probe_data,
                 )
                 for n, single_probe_data in enumerate(probe_data)
@@ -519,7 +544,6 @@ class PumpProbeFrame(PulseParameterFrame):
             )
 
         for probe_pulse in probe.pulses:
-            probe_pulse.time = 0
             pulse_tabulation[probe_pulse.name] = probe_pulse.tabulate(
                 intial_time,
                 final_time,
@@ -647,18 +671,22 @@ class PumpProbeFrame(PulseParameterFrame):
         if not pump_probe_lines:
             return None, []
 
-        probe_data = set()
+        probe_data: list[list[float]] = []
         time_delays = []
         probe_shape = None
 
         for line in pump_probe_lines:
             # Extract time delay from pump_probe name
             delay_match = re.search(r'\[pump_probe_([-+]?\d*\.?\d+)\]', line)
-            if delay_match:
-                time_delays.append(float(delay_match.group(1)))
+            if delay_match is None:
+                warning_popup('Could not extract time delay from pump-probe definition.')
+                return None, []
+            time_delay = float(delay_match.group(1))
+            time_delays.append(time_delay)
 
             # Extract probe pulse parameters (after the semicolon)
             # Look for the probe pulse parameters in parentheses after pump_train;
+            line_probe_data: list[list[float]] = []
             parts = line.split(';')
             for part in parts:
                 if '(' in part and ')' in part:
@@ -672,11 +700,14 @@ class PumpProbeFrame(PulseParameterFrame):
                             return None, []
 
                         shape = params[0]
-                        # For probe, skip the time parameter (index 1) since it varies
-                        numeric_params = tuple(
-                            float(p) for p in params[2 : self.EXPECTED_PARAM_COUNT]
-                        )  # Skip shape and time
-                        probe_data.add(numeric_params)
+                        absolute_time = float(params[1])
+                        # Keep the relative time with respect to the pump-probe delay.
+                        relative_time = absolute_time - time_delay
+                        numeric_params = [
+                            relative_time,
+                            *(float(p) for p in params[2 : self.EXPECTED_PARAM_COUNT]),
+                        ]
+                        line_probe_data.append(numeric_params)
 
                         # Set probe shape from first pulse (should be consistent)
                         if probe_shape is None:
@@ -688,8 +719,24 @@ class PumpProbeFrame(PulseParameterFrame):
                             warning_popup('Inconsistent probe pulse shapes found.')
                             return None, []
 
+            if not line_probe_data:
+                continue
+
+            if not probe_data:
+                probe_data = line_probe_data
+                continue
+
+            if len(line_probe_data) != len(probe_data):
+                warning_popup('Inconsistent number of probe pulses across time delays.')
+                return None, []
+
+            for current_pulse_data, first_pulse_data in zip(line_probe_data, probe_data):
+                if not np.allclose(current_pulse_data, first_pulse_data):
+                    warning_popup('Probe pulse parameters vary across time delays.')
+                    return None, []
+
         if probe_data:
-            return np.array(list(probe_data)).T, time_delays
+            return np.array(probe_data).T, time_delays
 
         return None, time_delays
 
