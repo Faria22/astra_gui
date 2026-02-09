@@ -2,6 +2,7 @@
 
 import logging
 import tkinter as tk
+from collections.abc import Callable
 from functools import partial
 from pathlib import Path
 from tkinter import ttk
@@ -365,6 +366,290 @@ class Structural(TiNotebookPage):
                         return False
         return True
 
+    def _append_symmetric_operator_commands(self, lines: list[str]) -> tuple[bool, list[str]]:
+        """Validate and append selected symmetric operator commands.
+
+        Returns
+        -------
+        tuple[bool, list[str]]
+            A success flag and the new computed symmetries from this section.
+        """
+        base_command = 'astraBuildOperator -gif ASTRA.INP'
+        op_vals = [op.get() for op in self.op_vars]
+        if not any(op_vals):
+            return True, []
+
+        if not self.check_required_fields_and_files('sym_ops'):
+            return False, []
+
+        op_names = ','.join(self.op_labels[ind] for ind, op_val in enumerate(op_vals) if op_val)
+        ket_sym = self.get_text_from_widget(self.op_ket_sym_entry).replace(' ', '')
+        if not ket_sym:
+            required_field_popup("Symmetric operators' ket symmetry")
+            return False, []
+
+        if not self.check_ket_sym(ket_sym, 'Symmetric operators', check_computed=False):
+            return False, []
+
+        lines.append(f'{base_command} -op {op_names} -ketsym {ket_sym}')
+        new_computed_syms = self.unpack_all_symmetry(ket_sym.split(','))
+        return True, new_computed_syms
+
+    def _append_dipole_commands(
+        self,
+        lines: list[str],
+        check_ket_sym: Callable[[str, str], bool],
+        check_dipole_syms: Callable[..., bool],
+    ) -> bool:
+        """Validate and append selected dipole operator commands.
+
+        Returns
+        -------
+        bool
+            True when all dipole command validations pass.
+        """
+        base_command = 'astraBuildOperator -gif ASTRA.INP --bf'
+        dp_vals = [dp.get() for dp in self.dp_vars]
+        if not any(dp_vals):
+            return True
+
+        if not self.check_required_fields_and_files('dipoles'):
+            return False
+
+        ket_sym = self.get_text_from_widget(self.dp_ket_sym_entry)
+        if not ket_sym:
+            required_field_popup("Dipoles' ket symmetry")
+            return False
+
+        if not check_ket_sym(ket_sym, "Dipoles'"):
+            return False
+
+        if any(dp_vals[:3]):
+            if not check_dipole_syms(dp_vals[:3], ket_sym.split(',')):
+                return False
+
+            dp_length_vals = ','.join(self.dp_labels[ind] for ind in range(3) if dp_vals[ind])
+            lines.append(f'{base_command} -op {dp_length_vals} -ketsym {ket_sym}')
+
+        if any(dp_vals[3:]):
+            if not check_dipole_syms(dp_vals[3:], ket_sym.split(','), start_ind=3):
+                return False
+
+            dp_velocity_vals = ','.join(self.dp_labels[ind] for ind in range(3, 6) if dp_vals[ind])
+            lines.append(f'{base_command} -op {dp_velocity_vals} -ketsym {ket_sym}')
+
+        return True
+
+    def _append_hamiltonian_commands(
+        self,
+        lines: list[str],
+        check_ket_sym: Callable[[str, str], bool],
+    ) -> tuple[bool, list[bool], str]:
+        """Validate and append Hamiltonian diagonalization commands.
+
+        Returns
+        -------
+        tuple[bool, list[bool], str]
+            A success flag, Hamiltonian mode selections, and CAP strengths text.
+        """
+        base_command = 'astraCondition -gif ASTRA.INP --bf'
+        cap_strengths = ''
+        h_vals = [self.real_h_var.get(), self.complex_h_var.get(), self.ecs_h_var.get()]
+        if not any(h_vals):
+            return True, h_vals, cap_strengths
+
+        ket_sym = self.get_text_from_widget(self.h_ket_sym_entry)
+        if not ket_sym:
+            required_field_popup("Hamiltonian's diagonalization ket symmetry")
+            return False, h_vals, cap_strengths
+
+        if not check_ket_sym(ket_sym, "Hamiltonian's diagonalization"):
+            return False, h_vals, cap_strengths
+
+        if not self.check_required_fields_and_files('diag', complex_calculation=h_vals[1]):
+            return False, h_vals, cap_strengths
+
+        if h_vals[0]:
+            lines.append(f'{base_command} -sym {ket_sym}')
+
+        if h_vals[1]:
+            cap_strengths = ','.join(self.get_caps_from_entries(self.h_cap_entries))
+            if not cap_strengths:
+                required_field_popup('Cap strength for diagonalization')
+                return False, h_vals, cap_strengths
+
+            append_complex_h = True
+            missing_computed_cap_syms = self.check_already_computed_cap_strengths(cap_strengths, ket_sym)
+            if not missing_computed_cap_syms:
+                if not messagebox.askyesno(
+                    'Warning!',
+                    'This CAP strength has already been computed. Do you want to compute it again?',
+                ):
+                    self.complex_h_var.set(False)
+                    self.show_h_cap_widgets()
+                    append_complex_h = False
+            elif len(missing_computed_cap_syms) != len(self.unpack_all_symmetry(ket_sym.split(','))) and not (
+                messagebox.askyesno(
+                    'Warning!',
+                    'This CAP strength has already been computed for some symmetries. Do you want to recompute them?',
+                )
+            ):
+                ket_sym = ','.join(missing_computed_cap_syms)
+
+            if append_complex_h:
+                lines.append(f'{base_command} -sym {ket_sym} -cap {cap_strengths}')
+
+        if h_vals[2]:
+            ecs_command = 'astraECS -gif ASTRA.INP'
+            if not (ecs_params := self.get_ecs_params_from_entries(self.h_ecs_entries)):
+                required_field_popup('ECS parameters for diagonalization')
+                return False, h_vals, cap_strengths
+
+            ecs_radius = ecs_params[0]
+            ecs_angle = ecs_params[1]
+            lines.append(f'{ecs_command} -sym {ket_sym} -ECSradius {ecs_radius} -ECSangle {ecs_angle} --only_diag')
+
+        return True, h_vals, cap_strengths
+
+    def _append_susceptibility_mode_commands(
+        self,
+        lines: list[str],
+        susc_dp_vals: list[bool],
+        susc_entries: list[str],
+        cap_text: str,
+        check_dipole_syms: Callable[..., bool],
+    ) -> bool:
+        """Append dipole transition and susceptibility commands for one CAP mode.
+
+        Returns
+        -------
+        bool
+            True when command generation for the selected mode succeeds.
+        """
+        if any(susc_dp_vals[:3]):
+            if not check_dipole_syms(susc_dp_vals[:3], susc_entries[0].split(',')):
+                return False
+
+            susc_dp_length_vals = ','.join(self.dp_labels[ind] for ind in range(3) if susc_dp_vals[ind])
+            lines.extend([
+                (
+                    f'astraDipoleTransition -gif ASTRA.INP -op {susc_dp_length_vals} '
+                    f'-ketsym {susc_entries[0]} -trans bb {cap_text}'
+                ),
+                (
+                    f'astraSusceptibility -gif ASTRA.INP -op {susc_dp_length_vals} '
+                    f'-ketsym {susc_entries[0]} -trans bb -emin {susc_entries[1]} '
+                    f'-emax {susc_entries[2]} -ne {susc_entries[3]} {cap_text}'
+                ),
+            ])
+
+        if any(susc_dp_vals[3:]):
+            if not check_dipole_syms(susc_dp_vals[3:], susc_entries[0].split(','), start_ind=3):
+                return False
+
+            susc_dp_velocity_vals = ','.join(self.dp_labels[ind] for ind in range(3, 6) if susc_dp_vals[ind])
+            lines.extend([
+                (
+                    f'astraDipoleTransition -gif ASTRA.INP -op {susc_dp_velocity_vals} '
+                    f'-ketsym {susc_entries[0]} -trans bb {cap_text}'
+                ),
+                (
+                    f'astraSusceptibility -gif ASTRA.INP -op {susc_dp_velocity_vals} '
+                    f'-ketsym {susc_entries[0]} -trans bb -emin {susc_entries[1]} '
+                    f'-emax {susc_entries[2]} -ne {susc_entries[3]} {cap_text}'
+                ),
+            ])
+
+        return True
+
+    def _append_susceptibility_commands(
+        self,
+        lines: list[str],
+        check_ket_sym: Callable[[str, str], bool],
+        check_dipole_syms: Callable[..., bool],
+        h_vals: list[bool],
+        cap_strengths: str,
+    ) -> bool:
+        """Validate and append susceptibility-related commands.
+
+        Returns
+        -------
+        bool
+            True when susceptibility command generation succeeds.
+        """
+        susc_dp_vals = [susc_dp.get() for susc_dp in self.susc_dp_vars]
+        susc_real_complex = [self.real_susc_var.get(), self.complex_susc_var.get()]
+        susc_entries = [self.get_text_from_widget(e) for e in self.susc_kw_entries]
+        if not any(susc_real_complex) and not any(susc_dp_vals):
+            return True
+
+        if not any(susc_dp_vals) and any(susc_real_complex):
+            required_field_popup('Susceptibility dipoles')
+            return False
+
+        if any(susc_dp_vals) and not any(susc_real_complex):
+            required_field_popup('Susceptibility real and/or complex')
+            return False
+
+        if not self.check_required_fields_and_files('susc', complex_calculation=susc_real_complex[1]):
+            return False
+
+        for e_ind, entry_val in enumerate(susc_entries):
+            if not entry_val:
+                required_field_popup(self.susc_kw_entry_labels[e_ind])
+                return False
+
+        if not check_ket_sym(susc_entries[0], 'Susceptibility'):
+            return False
+
+        for real_complex, use_cap in zip(susc_real_complex, [False, True]):
+            if not real_complex:
+                continue
+
+            current_cap_text = ''
+            if use_cap:
+                if not h_vals[1]:
+                    current_cap_text = ','.join(self.get_caps_from_entries(self.susc_cap_entries))
+                    if not current_cap_text:
+                        required_field_popup('Cap strength for susceptibility')
+                        return False
+
+                    if self.check_already_computed_cap_strengths(current_cap_text, susc_entries[0]):
+                        if messagebox.askokcancel(
+                            'Error!',
+                            'This CAP strength has not been computed for this symmetry. '
+                            'Do you want to run a diagonalization routine for it?',
+                        ):
+                            self.complex_h_var.set(True)
+                            self.h_ket_sym_entry.delete(0, tk.END)
+                            self.h_ket_sym_entry.insert(0, susc_entries[0])
+
+                            for cap_entry, cap_value in zip(
+                                self.h_cap_entries,
+                                current_cap_text.split(','),
+                            ):
+                                cap_entry.delete(0, tk.END)
+                                cap_entry.insert(0, cap_value)
+
+                            self.show_h_cap_widgets()
+                            self.save()  # Recompute the commands
+                        return False
+                else:
+                    current_cap_text = cap_strengths
+
+                current_cap_text = '-cap ' + current_cap_text
+
+            if not self._append_susceptibility_mode_commands(
+                lines,
+                susc_dp_vals,
+                susc_entries,
+                current_cap_text,
+                check_dipole_syms,
+            ):
+                return False
+
+        return True
+
     def get_commands(self) -> str:
         """Assemble the command string for the selected structural tasks.
 
@@ -374,225 +659,28 @@ class Structural(TiNotebookPage):
             Script content ready to be written to disk.
         """
         lines: list[str] = []
-        new_computed_syms: list[str] = []
-
-        ket_sym = ''
-
-        # Symmetric operators
-        base_command = 'astraBuildOperator -gif ASTRA.INP'
-
-        op_vals = [op.get() for op in self.op_vars]
-        if any(op_vals):
-            if not self.check_required_fields_and_files('sym_ops'):
-                return ''
-
-            op_vals = ','.join([self.op_labels[ind] for ind, op_val in enumerate(op_vals) if op_val])
-
-            ket_sym = self.get_text_from_widget(self.op_ket_sym_entry).replace(' ', '')
-            if not ket_sym:
-                required_field_popup("Symmetric operators' ket symmetry")
-                return ''
-
-            if not self.check_ket_sym(ket_sym, 'Symmetric operators', check_computed=False):
-                return ''
-
-            lines.append(f'{base_command} -op {op_vals} -ketsym {ket_sym}')
-
-            ket_sym_list = ket_sym.split(',')
-            new_computed_syms = self.unpack_all_symmetry(ket_sym_list)
+        ok, new_computed_syms = self._append_symmetric_operator_commands(lines)
+        if not ok:
+            return ''
 
         check_ket_sym = partial(self.check_ket_sym, new_computed_syms=new_computed_syms)
         check_dipole_syms = partial(self.check_dipole_syms, new_computed_syms=new_computed_syms)
 
-        # Dipoles
-        base_command = 'astraBuildOperator -gif ASTRA.INP --bf'
+        if not self._append_dipole_commands(lines, check_ket_sym, check_dipole_syms):
+            return ''
 
-        dp_vals = [dp.get() for dp in self.dp_vars]
-        if any(dp_vals):
-            if not self.check_required_fields_and_files('dipoles'):
-                return ''
+        ok, h_vals, cap_strengths = self._append_hamiltonian_commands(lines, check_ket_sym)
+        if not ok:
+            return ''
 
-            ket_sym = self.get_text_from_widget(self.dp_ket_sym_entry)
-            if not ket_sym:
-                required_field_popup("Dipoles' ket symmetry")
-                return ''
-
-            if not check_ket_sym(ket_sym, "Dipoles'"):
-                return ''
-
-        if any(dp_vals[:3]):
-            if not check_dipole_syms(dp_vals[:3], ket_sym.split(',')):
-                return ''
-
-            dp_length_vals = ','.join(self.dp_labels[ind] for ind in range(3) if dp_vals[ind])
-            lines.append(f'{base_command} -op {dp_length_vals} -ketsym {ket_sym}')
-
-        if any(dp_vals[3:]):
-            if not check_dipole_syms(dp_vals[3:], ket_sym.split(','), start_ind=3):
-                return ''
-
-            dp_velocity_vals = ','.join(self.dp_labels[ind] for ind in range(3, 6) if dp_vals[ind])
-            lines.append(f'{base_command} -op {dp_velocity_vals} -ketsym {ket_sym}')
-
-        # Diagonalize Hamiltonian
-        base_command = 'astraCondition -gif ASTRA.INP --bf'
-
-        h_vals = [self.real_h_var.get(), self.complex_h_var.get(), self.ecs_h_var.get()]
-        if any(h_vals):
-            ket_sym = self.get_text_from_widget(self.h_ket_sym_entry)
-            if not ket_sym:
-                required_field_popup("Hamiltonian's diagonalization ket symmetry")
-                return ''
-
-            if not check_ket_sym(ket_sym, "Hamiltonian's diagonalization"):
-                return ''
-
-            if not self.check_required_fields_and_files('diag', complex_calculation=h_vals[1]):
-                return ''
-
-        if h_vals[0]:
-            lines.append(f'{base_command} -sym {ket_sym}')
-
-        if h_vals[1]:
-            if not (cap_strengths := ','.join(self.get_caps_from_entries(self.h_cap_entries))):
-                required_field_popup('Cap strength for diagonalization')
-                return ''
-
-            flag = True
-            missing_computed_cap_syms = self.check_already_computed_cap_strengths(cap_strengths, ket_sym)
-            if not missing_computed_cap_syms:  # CAP strengths for all symmetries have been computed
-                if not messagebox.askyesno(
-                    'Warning!',
-                    'This CAP strength has already been computed. Do you want to compute it again?',
-                ):
-                    self.complex_h_var.set(False)
-                    self.show_h_cap_widgets()
-                    flag = False
-
-            # CAP strengths for some symmetries have been computed
-            elif len(missing_computed_cap_syms) != len(self.unpack_all_symmetry(ket_sym.split(','))):  # noqa: SIM102
-                if not messagebox.askyesno(
-                    'Warning!',
-                    'This CAP strength has already been computed for some symmetries. Do you want to recompute them?',
-                ):
-                    ket_sym = ','.join(missing_computed_cap_syms)
-
-            if flag:
-                lines.append(f'{base_command} -sym {ket_sym} -cap {cap_strengths}')
-
-        if h_vals[2]:
-            base_command = 'astraECS -gif ASTRA.INP'
-            if not (ecs_params := self.get_ecs_params_from_entries(self.h_ecs_entries)):
-                required_field_popup('ECS parameters for diagonalization')
-                return ''
-
-            ecs_radius = ecs_params[0]
-            ecs_angle = ecs_params[1]
-
-            # It only performs the diagonalization but not the branching ratio calculation
-            lines.append(f'{base_command} -sym {ket_sym} -ECSradius {ecs_radius} -ECSangle {ecs_angle} --only_diag')
-
-        # Dipole transitions and susceptibility
-        susc_dp_vals = [susc_dp.get() for susc_dp in self.susc_dp_vars]
-        susc_real_complex = [var.get() for var in [self.real_susc_var, self.complex_susc_var]]
-        susc_entries = [self.get_text_from_widget(e) for e in self.susc_kw_entries]
-
-        if any(susc_real_complex) or any(susc_dp_vals):
-            if not any(susc_dp_vals) and any(susc_real_complex):
-                required_field_popup('Susceptibility dipoles')
-                return ''
-
-            if any(susc_dp_vals) and not any(susc_real_complex):
-                required_field_popup('Susceptibility real and/or complex')
-                return ''
-
-            if not self.check_required_fields_and_files('susc', complex_calculation=susc_real_complex[1]):
-                return ''
-
-            for e_ind, entry_val in enumerate(susc_entries):
-                if not entry_val:
-                    required_field_popup(self.susc_kw_entry_labels[e_ind])
-                    return ''
-
-            if not check_ket_sym(susc_entries[0], 'Susceptibility'):
-                return ''
-
-            # TODO: Refactor this to only use one variable in the for loop
-            for real_complex, cap in zip(susc_real_complex, [False, True]):
-                if not real_complex:
-                    continue
-
-                cap_text = ''
-                if cap:
-                    if not h_vals[1]:  # If the hamiltonian is not diagonalized with CAPs
-                        cap_text = ','.join(
-                            self.get_caps_from_entries(self.susc_cap_entries),
-                        )
-                        if not cap_text:
-                            required_field_popup('Cap strength for susceptibility')
-                            return ''
-
-                        if self.check_already_computed_cap_strengths(cap_text, susc_entries[0]):
-                            if messagebox.askokcancel(
-                                'Error!',
-                                'This CAP strength has not been computed for this symmetry. '
-                                'Do you want to run a diagonalization routine for it?',
-                            ):
-                                self.complex_h_var.set(True)
-                                self.h_ket_sym_entry.delete(0, tk.END)
-                                self.h_ket_sym_entry.insert(0, susc_entries[0])
-
-                                for cap_entry, cap_value in zip(
-                                    self.h_cap_entries,
-                                    cap_text.split(','),
-                                ):
-                                    cap_entry.delete(0, tk.END)
-                                    cap_entry.insert(0, cap_value)
-
-                                self.show_h_cap_widgets()
-                                self.save()  # Recompute the commands
-                            return ''
-                    else:
-                        cap_text = cap_strengths
-
-                    cap_text = '-cap ' + cap_text
-
-                if any(susc_dp_vals[:3]):
-                    if not check_dipole_syms(
-                        susc_dp_vals[:3],
-                        susc_entries[0].split(','),
-                    ):
-                        return ''
-
-                    susc_dp_length_vals = ','.join([self.dp_labels[ind] for ind in range(3) if susc_dp_vals[ind]])
-                    lines.extend([
-                        (
-                            f'astraDipoleTransition -gif ASTRA.INP -op {susc_dp_length_vals} '
-                            f'-ketsym {susc_entries[0]} -trans bb {cap_text}'
-                        ),
-                        (
-                            f'astraSusceptibility -gif ASTRA.INP -op {susc_dp_length_vals} '
-                            f'-ketsym {susc_entries[0]} -trans bb -emin {susc_entries[1]} '
-                            f'-emax {susc_entries[2]} -ne {susc_entries[3]} {cap_text}'
-                        ),
-                    ])
-
-                if any(susc_dp_vals[3:]):
-                    if not check_dipole_syms(susc_dp_vals[3:], susc_entries[0].split(','), start_ind=3):
-                        return ''
-
-                    susc_dp_velocity_vals = ','.join([self.dp_labels[ind] for ind in range(3, 6) if susc_dp_vals[ind]])
-                    lines.extend([
-                        (
-                            f'astraDipoleTransition -gif ASTRA.INP -op {susc_dp_velocity_vals} '
-                            f'-ketsym {susc_entries[0]} -trans bb {cap_text}'
-                        ),
-                        (
-                            f'astraSusceptibility -gif ASTRA.INP -op {susc_dp_velocity_vals} '
-                            f'-ketsym {susc_entries[0]} -trans bb -emin {susc_entries[1]} '
-                            f'-emax {susc_entries[2]} -ne {susc_entries[3]} {cap_text}'
-                        ),
-                    ])
+        if not self._append_susceptibility_commands(
+            lines,
+            check_ket_sym,
+            check_dipole_syms,
+            h_vals,
+            cap_strengths,
+        ):
+            return ''
 
         return self.add_idle_thread_and_join_lines(lines)
 
