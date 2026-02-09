@@ -9,7 +9,7 @@ import tkinter as tk
 from pathlib import Path
 from platform import system
 from tkinter import filedialog, ttk
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from astra_gui.close_coupling.create_cc_notebook import CreateCcNotebook
 from astra_gui.home_screen import HomeNotebook
@@ -189,6 +189,36 @@ class Astra(tk.Tk):
         )
         for notebook_class in notebook_classes:
             self.notebooks.append(notebook_class(parent=container, controller=self))
+
+    def get_cc_notebook(self) -> CreateCcNotebook:
+        """Return the Close Coupling notebook instance.
+
+        Returns
+        -------
+        CreateCcNotebook
+            The close-coupling notebook.
+        """
+        return cast(CreateCcNotebook, self.notebooks[1])
+
+    def get_ti_notebook(self) -> TimeIndependentNotebook:
+        """Return the Time Independent notebook instance.
+
+        Returns
+        -------
+        TimeIndependentNotebook
+            The time-independent notebook.
+        """
+        return cast(TimeIndependentNotebook, self.notebooks[2])
+
+    def get_td_notebook(self) -> TimeDependentNotebook:
+        """Return the Time Dependent notebook instance.
+
+        Returns
+        -------
+        TimeDependentNotebook
+            The time-dependent notebook.
+        """
+        return cast(TimeDependentNotebook, self.notebooks[3])
 
     def show_notebook_page(self, args: argparse.Namespace) -> None:
         """Show the notebook page based on the runtime arguments."""

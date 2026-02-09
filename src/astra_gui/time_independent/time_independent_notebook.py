@@ -17,7 +17,6 @@ from .ti_notebook_page_module import TiNotebookPage
 
 if TYPE_CHECKING:
     from astra_gui.app import Astra
-    from astra_gui.close_coupling.create_cc_notebook import CreateCcNotebook
 
 logger = logging.getLogger(__name__)
 
@@ -153,7 +152,7 @@ class TimeIndependentNotebook(Notebook[TiNotebookPage]):
 
     def reset(self) -> None:
         """Refresh cached close-coupling data and reset each page."""
-        create_cc_notebook = cast('CreateCcNotebook', self.controller.notebooks[1])
+        create_cc_notebook = self.controller.get_cc_notebook()
         TiNotebookPage.cc_syms = cast(
             list[str],
             create_cc_notebook.cc_data['total_syms'],

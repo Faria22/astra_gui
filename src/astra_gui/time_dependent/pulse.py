@@ -22,7 +22,6 @@ from .td_notebook_page_module import TdNotebookPage
 
 if TYPE_CHECKING:
     from astra_gui.close_coupling.bsplines import BsplinesData
-    from astra_gui.close_coupling.create_cc_notebook import CreateCcNotebook
 
     from .time_dependent_notebook import TimeDependentNotebook
 
@@ -422,7 +421,7 @@ class PulseParameterFrame(ttk.Frame, ABC):
             Parsed B-splines data, or ``None`` when unavailable/invalid.
         """
         pulse_page = cast('PulsePage', self.master)
-        create_cc_notebook = cast('CreateCcNotebook', pulse_page.controller.notebooks[1])
+        create_cc_notebook = pulse_page.controller.get_cc_notebook()
         bsplines_data = create_cc_notebook.bsplines_data
 
         if not bsplines_data['is_valid']:

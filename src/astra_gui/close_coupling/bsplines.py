@@ -24,8 +24,6 @@ from .clscplng import Clscplng
 from .dalton import Dalton
 
 if TYPE_CHECKING:
-    from astra_gui.time_independent.time_independent_notebook import TimeIndependentNotebook
-
     from .create_cc_notebook import CreateCcNotebook
 
 logger = logging.getLogger(__name__)
@@ -268,7 +266,7 @@ class Bsplines(CcNotebookPage):
             invalid_input_popup('Mask radius bigger than box size.')
             return
 
-        ti_notebook = cast('TimeIndependentNotebook', self.controller.notebooks[2])
+        ti_notebook = self.controller.get_ti_notebook()
         ti_notebook.show_cap_radii(cap_radii)
         self.update_bsplines_data(
             cap_radii=cap_radii_float,
@@ -450,7 +448,7 @@ class Bsplines(CcNotebookPage):
             except ValueError:
                 cap_radii_float = []
 
-            ti_notebook = cast('TimeIndependentNotebook', self.controller.notebooks[2])
+            ti_notebook = self.controller.get_ti_notebook()
             ti_notebook.show_cap_radii(cap_radii_list)
 
             ti_notebook.show_cap_strengths()

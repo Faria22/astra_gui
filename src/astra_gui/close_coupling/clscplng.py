@@ -25,8 +25,6 @@ from astra_gui.utils.scrollable_module import ScrollableFrame
 from .cc_notebook_page_module import CcNotebookPage
 
 if TYPE_CHECKING:
-    from astra_gui.time_independent.time_independent_notebook import TimeIndependentNotebook
-
     from .bsplines import Bsplines
     from .create_cc_notebook import CreateCcNotebook
 
@@ -400,7 +398,7 @@ class Clscplng(CcNotebookPage):
             else:
                 cc_total_syms.append(f'{mult}{sym}')
 
-        ti_notebook = cast('TimeIndependentNotebook', self.controller.notebooks[2])
+        ti_notebook = self.controller.get_ti_notebook()
         ti_notebook.erase_cc_data()
 
         ti_notebook.show_cc_data(cc_total_syms, target_states, open_channels)
