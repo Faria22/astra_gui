@@ -7,10 +7,11 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
 from tkinter import filedialog, ttk
-from typing import TYPE_CHECKING, Any, overload
+from typing import TYPE_CHECKING, Any, cast, overload
 
 import numpy as np
 
+from astra_gui.utils.constants import AU_TO_EV, EV_TO_AU
 from astra_gui.utils.font_module import bold_font
 from astra_gui.utils.notebook_module import NotebookPage
 from astra_gui.utils.popup_module import invalid_input_popup, save_success_popup, warning_popup
@@ -20,9 +21,64 @@ from astra_gui.utils.table_module import Table
 from .td_notebook_page_module import TdNotebookPage
 
 if TYPE_CHECKING:
+    from astra_gui.close_coupling.bsplines import BsplinesData
+    from astra_gui.close_coupling.create_cc_notebook import CreateCcNotebook
+
     from .time_dependent_notebook import TimeDependentNotebook
 
 logger = logging.getLogger(__name__)
+
+
+def compute_mask_free_time_interval(
+    max_photon_energy_ev: float,
+    cap_radii: list[float],
+    mask_radius: float,
+) -> float:
+    """Return mask-free time interval in atomic units.
+
+    Returns
+    -------
+    float
+        Computed interval for ``Mask_Free_Time_Interval``.
+    """
+    if max_photon_energy_ev <= 0:
+        raise ValueError('Max photon energy must be greater than zero.')
+
+    if not cap_radii:
+        raise ValueError('At least one CAP radius is required.')
+
+    min_cap_radius = min(cap_radii)
+    if min_cap_radius <= mask_radius:
+        raise ValueError('Mask radius should be smaller than smallest CAP radius.')
+
+    max_photon_energy_au = max_photon_energy_ev * EV_TO_AU
+    return (min_cap_radius - mask_radius) / np.sqrt(2 * max_photon_energy_au)
+
+
+def derive_max_photon_energy_ev(
+    mask_free_time_interval: float,
+    cap_radii: list[float],
+    mask_radius: float,
+) -> float:
+    """Infer max photon energy in eV from mask-free time interval.
+
+    Returns
+    -------
+    float
+        Maximum photon energy in eV.
+    """
+    if mask_free_time_interval <= 0:
+        raise ValueError('Mask-free time interval must be greater than zero.')
+
+    if not cap_radii:
+        raise ValueError('At least one CAP radius is required.')
+
+    min_cap_radius = min(cap_radii)
+    if min_cap_radius <= mask_radius:
+        raise ValueError('Mask radius should be smaller than smallest CAP radius.')
+
+    max_photon_energy_au = ((min_cap_radius - mask_radius) / mask_free_time_interval) ** 2 / 2
+    return max_photon_energy_au * AU_TO_EV
 
 
 class Pulse:
@@ -357,6 +413,84 @@ class PulseParameterFrame(ttk.Frame, ABC):
         """
         return all(pulse.good_parameters for pulse in pulses.pulses)
 
+    def _get_bsplines_data(self, show_popup: bool = True) -> 'BsplinesData | None':
+        """Return shared B-splines data required by issue #2 formula.
+
+        Returns
+        -------
+        BsplinesData | None
+            Parsed B-splines data, or ``None`` when unavailable/invalid.
+        """
+        pulse_page = cast('PulsePage', self.master)
+        create_cc_notebook = cast('CreateCcNotebook', pulse_page.controller.notebooks[1])
+        bsplines_data = create_cc_notebook.bsplines_data
+
+        if not bsplines_data['is_valid']:
+            if show_popup:
+                invalid_input_popup('Missing B-splines data. Save or load B-splines inputs before saving pulse files.')
+            return None
+
+        if not bsplines_data['cap_radii']:
+            if show_popup:
+                invalid_input_popup('Missing CAP radii in B-splines data.')
+            return None
+
+        if min(bsplines_data['cap_radii']) <= bsplines_data['mask_radius']:
+            if show_popup:
+                invalid_input_popup('Mask radius should be smaller than smallest CAP radius.')
+            return None
+
+        return bsplines_data
+
+    def _compute_mask_free_time_interval(self, max_photon_energy_ev: float) -> float | None:
+        """Compute mask-free time interval using B-splines data.
+
+        Returns
+        -------
+        float | None
+            Computed interval, or ``None`` when validation fails.
+        """
+        bsplines_data = self._get_bsplines_data(show_popup=False)
+        if bsplines_data is None:
+            return None
+
+        try:
+            return compute_mask_free_time_interval(
+                max_photon_energy_ev=max_photon_energy_ev,
+                cap_radii=bsplines_data['cap_radii'],
+                mask_radius=bsplines_data['mask_radius'],
+            )
+        except ValueError as exc:
+            invalid_input_popup(str(exc))
+            return None
+
+    def _set_max_photon_energy_from_mask_interval(
+        self,
+        max_photon_energy_widget: ttk.Entry,
+        mask_free_time_interval: str,
+    ) -> None:
+        """Fill max photon energy entry using a loaded TDSE mask-free interval."""
+        max_photon_energy_widget.delete(0, tk.END)
+        if not mask_free_time_interval:
+            return
+
+        bsplines_data = self._get_bsplines_data()
+        if bsplines_data is None:
+            warning_popup('Could not derive max photon energy from TDSE without valid B-splines data.')
+            return
+
+        try:
+            max_photon_energy_ev = derive_max_photon_energy_ev(
+                mask_free_time_interval=float(mask_free_time_interval),
+                cap_radii=bsplines_data['cap_radii'],
+                mask_radius=bsplines_data['mask_radius'],
+            )
+        except ValueError as exc:
+            warning_popup(str(exc))
+            return
+
+        max_photon_energy_widget.insert(0, str(max_photon_energy_ev))
+
     @abstractmethod
     def save(
         self,
@@ -473,6 +607,16 @@ class PumpProbeFrame(PulseParameterFrame):
         self.sim_label = ttk.Entry(sim_params_frame, width=10)
         self.sim_label.grid(row=3, column=1)
 
+        # Max photon energy
+        self.hover_widget(
+            ttk.Label,
+            sim_params_frame,
+            text='Max photon energy [eV]:',
+            hover_text='Used to compute Mask_Free_Time_Interval from B-splines CAP/mask radii.',
+        ).grid(row=4, column=0)
+        self.max_photon_energy_entry = ttk.Entry(sim_params_frame, width=10)
+        self.max_photon_energy_entry.grid(row=4, column=1)
+
     def save(
         self,
     ) -> tuple[dict[str, str], dict[str, str], Path, Path, dict[str, str]] | None:
@@ -490,11 +634,13 @@ class PumpProbeFrame(PulseParameterFrame):
             maximum_time_delay: float = 0
             time_delay_spacing: float = 0
             simulation_label: str = ''
+            max_photon_energy: float = 0
 
             minimum_time_delay_widget: ttk.Entry = self.min_tau
             maximum_time_delay_widget: ttk.Entry = self.max_tau
             time_delay_spacing_widget: ttk.Entry = self.delta_tau
             simulation_label_widget: ttk.Entry = self.sim_label
+            max_photon_energy_widget: ttk.Entry = self.max_photon_energy_entry
 
         required_fields = PumpProbeRequiredFields()
 
@@ -505,6 +651,7 @@ class PumpProbeFrame(PulseParameterFrame):
         max_tau = required_fields.maximum_time_delay
         delta_tau = required_fields.time_delay_spacing
         sim_label = required_fields.simulation_label
+        max_photon_energy_ev = required_fields.max_photon_energy
 
         pump_data = self.pump_table.get().T
         probe_data = self.probe_table.get().T
@@ -575,12 +722,16 @@ class PumpProbeFrame(PulseParameterFrame):
             )
 
         ######################################
+        if (mask_free_time_interval := self._compute_mask_free_time_interval(max_photon_energy_ev)) is None:
+            return None
+
         tdse_data = {
             'pulse_filename': pulse_filename,
             'structure_dir': f'TDSE_input_files_{sim_label}',
             'initial_time': intial_time - PulsePage.DELTA_START_TIME,
             'final_time': final_time + PulsePage.DELTA_END_TIME,
             'final_pulse_time': final_time,
+            'mask_free_time_interval': mask_free_time_interval,
             'time_step': PulsePage.TIME_STEP,
             'save_time_step': PulsePage.SAVE_TIME_STEP,
             'label': sim_label,
@@ -596,7 +747,7 @@ class PumpProbeFrame(PulseParameterFrame):
             pulse_tabulation,
         )
 
-    def load(self, pulse_lines: list[str], sim_label: str = '') -> None:
+    def load(self, pulse_lines: list[str], tdse_lines: list[str], sim_label: str = '') -> None:
         """
         Load pump-probe pulse parameters from a saved pump-probe pulse file.
 
@@ -616,6 +767,9 @@ class PumpProbeFrame(PulseParameterFrame):
         self.pump_table.put(pump_data)
         self.probe_table.put(probe_data)
         self._set_time_delay_parameters(time_delays)
+        if tdse_lines:
+            mask_free_time_interval = CustomPulseFrame.extract_tdse_parameters(tdse_lines)[5]
+            self._set_max_photon_energy_from_mask_interval(self.max_photon_energy_entry, mask_free_time_interval)
 
         # Set simulation label
         self.sim_label.delete(0, tk.END)
@@ -803,6 +957,7 @@ class PumpProbeFrame(PulseParameterFrame):
         self.max_tau.delete(0, tk.END)
         self.delta_tau.delete(0, tk.END)
         self.sim_label.delete(0, tk.END)
+        self.max_photon_energy_entry.delete(0, tk.END)
 
 
 class CustomPulseFrame(PulseParameterFrame):
@@ -911,6 +1066,16 @@ class CustomPulseFrame(PulseParameterFrame):
         self.sim_label_entry = ttk.Entry(sim_params_frame)
         self.sim_label_entry.grid(row=5, column=1)
 
+        # Max photon energy
+        self.hover_widget(
+            ttk.Label,
+            sim_params_frame,
+            text='Max photon energy [eV]:',
+            hover_text='Used to compute Mask_Free_Time_Interval from B-splines CAP/mask radii.',
+        ).grid(row=6, column=0)
+        self.max_photon_energy_entry = ttk.Entry(sim_params_frame)
+        self.max_photon_energy_entry.grid(row=6, column=1)
+
     def estimate_simulation_parameters(self) -> None:
         """Infer simulation window defaults from the configured pulses."""
         pulse_data = self.pulse_table.get().T
@@ -980,9 +1145,17 @@ class CustomPulseFrame(PulseParameterFrame):
             ('Time step', self.time_step_entry, float),
             ('Save time step', self.save_time_step_entry, float),
             ('Simulation label', self.sim_label_entry, str),
+            ('Max photon energy', self.max_photon_energy_entry, float),
         ]
 
         if not (required_fields := self.check_field_entries(required_fields)):
+            return None
+
+        if (
+            mask_free_time_interval := self._compute_mask_free_time_interval(
+                cast(float, required_fields['Max photon energy']),
+            )
+        ) is None:
             return None
 
         tdse_data = {
@@ -991,6 +1164,7 @@ class CustomPulseFrame(PulseParameterFrame):
             'initial_time': required_fields['Initial time'],
             'final_time': required_fields['Final time'],
             'final_pulse_time': required_fields['Final pulse time'],
+            'mask_free_time_interval': mask_free_time_interval,
             'time_step': required_fields['Time step'],
             'save_time_step': required_fields['Save time step'],
             'label': required_fields['Simulation label'],
@@ -1023,7 +1197,9 @@ class CustomPulseFrame(PulseParameterFrame):
 
         pulse_data = self.convert_pulse_data(pulse_strings)
 
-        initial_time, final_time, final_pulse_time, time_step, save_time_step = self.extract_tdse_parameters(tdse_lines)
+        initial_time, final_time, final_pulse_time, time_step, save_time_step, mask_free_time_interval = (
+            self.extract_tdse_parameters(tdse_lines)
+        )
 
         self.pulse_table.put(pulse_data)
         self.initial_time_entry.insert(0, initial_time)
@@ -1032,21 +1208,22 @@ class CustomPulseFrame(PulseParameterFrame):
         self.time_step_entry.insert(0, time_step)
         self.save_time_step_entry.insert(0, save_time_step)
         self.sim_label_entry.insert(0, sim_label)
+        self._set_max_photon_energy_from_mask_interval(self.max_photon_energy_entry, mask_free_time_interval)
 
     @staticmethod
-    def extract_tdse_parameters(tdse_lines: list[str]) -> tuple[str, str, str, str, str]:
+    def extract_tdse_parameters(tdse_lines: list[str]) -> tuple[str, str, str, str, str, str]:
         """Extract TDSE configuration values from the serialised lines.
 
         Returns
         -------
-        tuple[str, str, str, str, str]
-            Initial time, final time, final pulse time, time step, and save interval.
+        tuple[str, str, str, str, str, str]
+            Initial time, final time, final pulse time, time step, save interval, and mask-free interval.
         """
 
         def extract_value(line: str) -> str:
             return line.split('=')[1].strip()
 
-        initial_time = final_time = final_pulse_time = time_step = save_time_step = ''
+        initial_time = final_time = final_pulse_time = time_step = save_time_step = mask_free_time_interval = ''
         for line in tdse_lines:
             if 'Initial_Time' in line:
                 initial_time = extract_value(line)
@@ -1058,6 +1235,8 @@ class CustomPulseFrame(PulseParameterFrame):
                 time_step = extract_value(line)
             elif 'Save_Time_Interval' in line:
                 save_time_step = extract_value(line)
+            elif 'Mask_Free_Time_Interval' in line:
+                mask_free_time_interval = extract_value(line)
 
         if not all([
             initial_time,
@@ -1067,9 +1246,9 @@ class CustomPulseFrame(PulseParameterFrame):
             save_time_step,
         ]):
             invalid_input_popup('Missing attributes for TDSE parameters.')
-            return '', '', '', '', ''
+            return '', '', '', '', '', ''
 
-        return initial_time, final_time, final_pulse_time, time_step, save_time_step
+        return initial_time, final_time, final_pulse_time, time_step, save_time_step, mask_free_time_interval
 
     @staticmethod
     def convert_pulse_data(pulse_strings: list[str]) -> np.ndarray:
@@ -1105,6 +1284,7 @@ class CustomPulseFrame(PulseParameterFrame):
         self.final_pulse_time_entry.delete(0, tk.END)
         self.time_step_entry.delete(0, tk.END)
         self.save_time_step_entry.delete(0, tk.END)
+        self.max_photon_energy_entry.delete(0, tk.END)
 
     def erase(self) -> None:
         """Reset the custom pulse form to its initial state."""
@@ -1193,14 +1373,16 @@ class PulsePage(TdNotebookPage):
         pulse_lines = self.read_file(pulse_file_path)
         sim_label_parts = pulse_file.split('PULSE.INP_', 1)
         sim_label = sim_label_parts[1] if len(sim_label_parts) > 1 else ''
+        tdse_file_path = Path(pulse_file.replace('PULSE', 'TDSE'))
+        try:
+            tdse_lines = self.read_file(tdse_file_path)
+        except (FileNotFoundError, OSError):
+            tdse_lines = []
         if self.PUMP_PROBE_LABEL in lines[0]:
             # Extract sim_label from filename for pump-probe files
-            self.pump_probe_frame.load(pulse_lines, sim_label)
+            self.pump_probe_frame.load(pulse_lines, tdse_lines, sim_label)
         else:
             self.sim_type_combo.current(1)
-
-            tdse_file_path = Path(pulse_file.replace('PULSE', 'TDSE'))
-            tdse_lines = self.read_file(tdse_file_path)
 
             self.custom_pulse_frame.load(pulse_lines, tdse_lines, sim_label)
 

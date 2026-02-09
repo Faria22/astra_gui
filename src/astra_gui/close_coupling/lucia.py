@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from functools import partial
 from pathlib import Path
 from tkinter import ttk
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, TypedDict, cast
 
 import numpy as np
 from moldenViz import Plotter
@@ -36,6 +36,17 @@ if TYPE_CHECKING:
     from .create_cc_notebook import CreateCcNotebook
 
 
+class LuciaData(TypedDict):
+    """Aggregated Lucia calculation configuration and results."""
+
+    lcsblk: int
+    electrons: int
+    total_orbitals: list[str]
+    states: list[str]
+    energies: list[str]
+    relative_energies: list[str]
+
+
 class Lucia(CcNotebookPage):
     """Notebook page responsible for running Lucia and managing its inputs."""
 
@@ -48,6 +59,17 @@ class Lucia(CcNotebookPage):
         'Hamiltonian': Path('QC/Lucia_Loc_H.out'),
         'Transition density matrices': Path('QC/Lucia_TDM1-2B.out'),
     }
+
+    def reset(self) -> None:
+        """Reset shared Lucia data defaults."""
+        self.notebook.lucia_data = {
+            'lcsblk': 106968,
+            'electrons': 0,
+            'total_orbitals': [],
+            'states': [],
+            'energies': [],
+            'relative_energies': [],
+        }
 
     def __init__(self, notebook: 'CreateCcNotebook') -> None:
         super().__init__(notebook, 'Molecular States', two_screens=True)

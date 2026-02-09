@@ -7,10 +7,11 @@ from dataclasses import dataclass
 from functools import partial
 from pathlib import Path
 from tkinter import ttk
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, TypedDict, cast
 
 import numpy as np
 
+from astra_gui.utils.constants import AU_TO_EV, EV_TO_AU
 from astra_gui.utils.font_module import title_font
 from astra_gui.utils.popup_module import (
     invalid_input_popup,
@@ -32,11 +33,25 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+class CcData(TypedDict):
+    """Close-coupling metadata shared with downstream notebooks."""
+
+    lmax: int
+    total_syms: list[str]
+
+
 class Clscplng(CcNotebookPage):
     """Notebook page that manages close-coupling calculations."""
 
     CLSCPLNG_FILE = Path('CLSCPLNG.INP')
     SCRIPT_COMMANDS = ['astraConvertDensityMatrices']
+
+    def reset(self) -> None:
+        """Reset shared close-coupling data defaults."""
+        self.notebook.cc_data = {
+            'lmax': 3,
+            'total_syms': [],
+        }
 
     def __init__(self, notebook: 'CreateCcNotebook') -> None:
         """Initialise the page and prepare the layout."""
@@ -870,8 +885,6 @@ class CcBasisList:
 class CheckList(ttk.Treeview):
     """Treeview that behaves like a checklist with unit conversion helpers."""
 
-    AU_TO_EV = 27.211_386_245_981
-    EV_TO_AU = 1 / AU_TO_EV
     ENERGY_SHIFT_COL = '#4'
 
     def __init__(self, frame: ttk.Frame, p_ions: list[str], cc_list: CcBasisList, units: list[str], **kwargs) -> None:
@@ -961,7 +974,7 @@ class CheckList(ttk.Treeview):
                 continue
 
             value = float(value)
-            value *= self.EV_TO_AU if units == 'eV' else self.AU_TO_EV
+            value *= EV_TO_AU if units == 'eV' else AU_TO_EV
 
             values[ind] = str(value)
 
@@ -1022,7 +1035,7 @@ class CheckList(ttk.Treeview):
             shift = values[3]
 
             if shift and 'eV' in self.heading(self.ENERGY_SHIFT_COL)['text']:
-                shift = str(float(shift) * self.EV_TO_AU)
+                shift = str(float(shift) * EV_TO_AU)
 
             shift_energies.append(shift)
 

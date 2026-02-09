@@ -1,6 +1,6 @@
 """Shared functionality for close-coupling notebook pages."""
 
-from abc import ABC
+from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -48,3 +48,7 @@ class CcNotebookPage(NotebookPage['CreateCcNotebook'], ABC):
     def right_screen_def(self) -> None:
         """Populate widgets that appear on the right screen."""
         raise NotImplementedError
+
+    @abstractmethod
+    def reset(self) -> None:
+        """Reset shared notebook state owned by the page."""

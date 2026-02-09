@@ -3,19 +3,38 @@
 import math
 import sys
 from pathlib import Path
-from typing import Any
+from types import SimpleNamespace
+from typing import Any, cast
 
 import numpy as np
 import pytest
 from numpy.testing import assert_allclose
 
 try:
-    from astra_gui.time_dependent.pulse import Pulse, Pulses, PumpProbePulses
+    from astra_gui.close_coupling.bsplines import Bsplines
+    from astra_gui.close_coupling.clscplng import CheckList
+    from astra_gui.time_dependent.pulse import (
+        Pulse,
+        Pulses,
+        PumpProbePulses,
+        compute_mask_free_time_interval,
+        derive_max_photon_energy_ev,
+    )
+    from astra_gui.utils.constants import AU_TO_EV, EV_TO_AU
 except ModuleNotFoundError:
     SRC_PATH = Path(__file__).resolve().parents[1] / 'src'
     if str(SRC_PATH) not in sys.path:
         sys.path.insert(0, str(SRC_PATH))
-    from astra_gui.time_dependent.pulse import Pulse, Pulses, PumpProbePulses
+    from astra_gui.close_coupling.bsplines import Bsplines
+    from astra_gui.close_coupling.clscplng import CheckList
+    from astra_gui.time_dependent.pulse import (
+        Pulse,
+        Pulses,
+        PumpProbePulses,
+        compute_mask_free_time_interval,
+        derive_max_photon_energy_ev,
+    )
+    from astra_gui.utils.constants import AU_TO_EV, EV_TO_AU
 
 
 def make_gaussian_pulse(**overrides: Any) -> Pulse:
@@ -216,3 +235,62 @@ def test_zero_frequency_fwhm_or_intensity_is_rejected(
 
     assert calls, 'Expected warning_popup to be called'
     assert pulse.good_parameters is False
+
+
+def test_compute_mask_free_time_interval_formula() -> None:
+    """Mask-free interval should follow issue #2 formula."""
+    delta_t = compute_mask_free_time_interval(
+        max_photon_energy_ev=20.0,
+        cap_radii=[45.0, 60.0],
+        mask_radius=40.0,
+    )
+    expected = (45.0 - 40.0) / math.sqrt(2 * (20.0 * EV_TO_AU))
+    assert delta_t == pytest.approx(expected)
+
+
+def test_derive_max_photon_energy_is_inverse_of_mask_free_time_formula() -> None:
+    """Derived max photon energy should invert the interval formula."""
+    expected_max_energy = 35.0
+    mask_free_time = compute_mask_free_time_interval(expected_max_energy, [50.0, 75.0], 42.0)
+    derived_energy = derive_max_photon_energy_ev(mask_free_time, [50.0, 75.0], 42.0)
+    assert derived_energy == pytest.approx(expected_max_energy)
+
+
+@pytest.mark.parametrize(
+    ('max_photon_energy_ev', 'cap_radii', 'mask_radius'),
+    [
+        (0.0, [45.0], 40.0),
+        (-1.0, [45.0], 40.0),
+        (10.0, [], 40.0),
+        (10.0, [39.0], 40.0),
+    ],
+)
+def test_compute_mask_free_time_interval_rejects_invalid_inputs(
+    max_photon_energy_ev: float,
+    cap_radii: list[float],
+    mask_radius: float,
+) -> None:
+    """Formula helper should reject invalid geometry/energy inputs."""
+    with pytest.raises(ValueError, match=r'.+'):
+        compute_mask_free_time_interval(max_photon_energy_ev, cap_radii, mask_radius)
+
+
+def test_bsplines_data_helpers_update_and_reset_notebook_state() -> None:
+    """Bsplines helper methods should manage shared typed-dict notebook state."""
+    bsplines = Bsplines.__new__(Bsplines)
+    cast(Any, bsplines).notebook = SimpleNamespace(bsplines_data={})
+
+    bsplines.update_bsplines_data([55.0], 42.0, 3.0, 80.0)
+    assert bsplines.notebook.bsplines_data['is_valid'] is True
+    assert bsplines.notebook.bsplines_data['cap_radii'] == [55.0]
+    assert bsplines.notebook.bsplines_data['mask_radius'] == pytest.approx(42.0)
+
+    bsplines.reset()
+    assert bsplines.notebook.bsplines_data['is_valid'] is False
+    assert bsplines.notebook.bsplines_data['cap_radii'] == []
+
+
+def test_shared_energy_constants_moved_out_of_checklist() -> None:
+    """Energy constants should come from shared module instead of class attributes."""
+    assert hasattr(CheckList, 'AU_TO_EV') is False
+    assert pytest.approx(1.0) == AU_TO_EV * EV_TO_AU

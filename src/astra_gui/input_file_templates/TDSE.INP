@@ -13,7 +13,7 @@ CAP2_Spectrum_File   = ###(structure_dir)/CAP2.dat_Spectrum
 
 
 # Intervals of time in which the Mask will not be applied to the wavefunction.
-Mask_Free_Time_Interval = 50.0
+Mask_Free_Time_Interval = ###(mask_free_time_interval)
 
 
 # If true, the dipole operator will b expanded in the essential states basis.
