@@ -2,4 +2,4 @@
 #
 # SPDX-License-Identifier: MIT
 """Package metadata."""
-__version__ = '1.5.0'
+__version__ = '1.5.1'
