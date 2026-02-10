@@ -21,7 +21,7 @@ from astra_gui.utils.table_module import Table
 from .td_notebook_page_module import TdNotebookPage
 
 if TYPE_CHECKING:
-    from astra_gui.close_coupling.bsplines import BsplinesData
+    from astra_gui.close_coupling.create_cc_notebook import BsplinesData
 
     from .time_dependent_notebook import TimeDependentNotebook
 

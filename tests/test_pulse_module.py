@@ -275,17 +275,30 @@ def test_compute_mask_free_time_interval_rejects_invalid_inputs(
         compute_mask_free_time_interval(max_photon_energy_ev, cap_radii, mask_radius)
 
 
-def test_bsplines_data_helpers_update_and_reset_notebook_state() -> None:
+def test_bsplines_data_helpers_update_and_initialize_notebook_state() -> None:
     """Bsplines helper methods should manage shared typed-dict notebook state."""
     bsplines = Bsplines.__new__(Bsplines)
-    cast(Any, bsplines).notebook = SimpleNamespace(bsplines_data={})
+    cast(Any, bsplines).notebook = SimpleNamespace(
+        bsplines_data={},
+        init_bsplines_data=lambda: setattr(
+            bsplines.notebook,
+            'bsplines_data',
+            {
+                'cap_radii': [],
+                'mask_radius': 0.0,
+                'mask_width': 0.0,
+                'box_size': 0.0,
+                'is_valid': False,
+            },
+        ),
+    )
 
     bsplines.update_bsplines_data([55.0], 42.0, 3.0, 80.0)
     assert bsplines.notebook.bsplines_data['is_valid'] is True
     assert bsplines.notebook.bsplines_data['cap_radii'] == [55.0]
     assert bsplines.notebook.bsplines_data['mask_radius'] == pytest.approx(42.0)
 
-    bsplines.reset()
+    bsplines.notebook.init_bsplines_data()
     assert bsplines.notebook.bsplines_data['is_valid'] is False
     assert bsplines.notebook.bsplines_data['cap_radii'] == []
 

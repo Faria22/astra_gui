@@ -7,7 +7,7 @@ from collections import Counter
 from functools import partial
 from pathlib import Path
 from tkinter import ttk
-from typing import TYPE_CHECKING, TypedDict
+from typing import TYPE_CHECKING
 
 import numpy as np
 from moldenViz import Plotter
@@ -26,36 +26,10 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class MoleculeData(TypedDict):
-    """Shared molecular metadata tracked across close-coupling pages."""
-
-    accuracy: str
-    units: str
-    number_atoms: int
-    linear_molecule: bool
-    generators: str
-    geom_label: str
-    atoms_data: str
-    num_diff_atoms: int
-
-
 class Molecule(CcNotebookPage):
     """Notebook page for specifying molecular geometry and symmetry."""
 
     MOLECULE_FILE = Path('MOLECULE.INP')
-
-    def reset(self) -> None:
-        """Reset shared molecule data defaults."""
-        self.notebook.molecule_data = {
-            'accuracy': '1.00D-10',
-            'units': 'Angstrom',
-            'number_atoms': 0,
-            'linear_molecule': False,
-            'generators': '',
-            'geom_label': '',
-            'atoms_data': '',
-            'num_diff_atoms': 0,
-        }
 
     def __init__(self, notebook: 'CreateCcNotebook') -> None:
         super().__init__(notebook, 'Molecular Geometry')

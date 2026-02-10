@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from functools import partial
 from pathlib import Path
 from tkinter import ttk
-from typing import TYPE_CHECKING, TypedDict, cast
+from typing import TYPE_CHECKING, cast
 
 from astra_gui.utils.font_module import bold_font
 from astra_gui.utils.popup_module import (
@@ -29,16 +29,6 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class BsplinesData(TypedDict):
-    """B-splines geometry values shared with other notebooks."""
-
-    cap_radii: list[float]
-    mask_radius: float
-    mask_width: float
-    box_size: float
-    is_valid: bool
-
-
 class Bsplines(CcNotebookPage):
     """B-spline basis notebook page class."""
 
@@ -56,16 +46,6 @@ class Bsplines(CcNotebookPage):
         'astraConvertIntegralsUKRmol',
         'astraConvertIntegralsHybInt',
     ]
-
-    def reset(self) -> None:
-        """Reset shared B-splines data defaults."""
-        self.notebook.bsplines_data = {
-            'cap_radii': [],
-            'mask_radius': 0.0,
-            'mask_width': 0.0,
-            'box_size': 0.0,
-            'is_valid': False,
-        }
 
     def update_bsplines_data(
         self,
@@ -195,7 +175,6 @@ class Bsplines(CcNotebookPage):
 
     def erase(self) -> None:
         """Reset every widget on the notebook page."""
-        self.reset()
         self.cap_r1_entry.delete(0, tk.END)
         self.cap_r2_entry.delete(0, tk.END)
         self.mask_radius_entry.delete(0, tk.END)
@@ -208,7 +187,7 @@ class Bsplines(CcNotebookPage):
 
     def save(self, show_popup: bool = True) -> None:
         """Validate the current configuration and write all required input files."""
-        self.reset()
+        self.notebook.init_bsplines_data()
         # Saving EXTERNAL_BASIS_BSPLINES.INP
 
         @dataclass
@@ -394,7 +373,7 @@ class Bsplines(CcNotebookPage):
 
     def load(self) -> None:
         """Populate the form from existing Astra or PRISM files."""
-        self.reset()
+        self.notebook.init_bsplines_data()
 
         def find_line_with_equal_sign_ind(
             lines: list[str],
@@ -411,7 +390,7 @@ class Bsplines(CcNotebookPage):
             return ''
 
         if not self.path_exists(self.BSPLINES_INPUT_FILE):
-            self.reset()
+            self.notebook.init_bsplines_data()
             return
 
         # Loads EXTERNAL_BASIS_BSPLINES.INP
@@ -473,7 +452,7 @@ class Bsplines(CcNotebookPage):
                 box_size=float(r_max),
             )
         else:
-            self.reset()
+            self.notebook.init_bsplines_data()
 
         # Loads files from prism_inputs
         if self.path_exists(self.PRISM_FOLDER):

@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from functools import partial
 from pathlib import Path
 from tkinter import ttk
-from typing import TYPE_CHECKING, TypedDict, cast
+from typing import TYPE_CHECKING, cast
 
 import numpy as np
 
@@ -31,25 +31,11 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class CcData(TypedDict):
-    """Close-coupling metadata shared with downstream notebooks."""
-
-    lmax: int
-    total_syms: list[str]
-
-
 class Clscplng(CcNotebookPage):
     """Notebook page that manages close-coupling calculations."""
 
     CLSCPLNG_FILE = Path('CLSCPLNG.INP')
     SCRIPT_COMMANDS = ['astraConvertDensityMatrices']
-
-    def reset(self) -> None:
-        """Reset shared close-coupling data defaults."""
-        self.notebook.cc_data = {
-            'lmax': 3,
-            'total_syms': [],
-        }
 
     def __init__(self, notebook: 'CreateCcNotebook') -> None:
         """Initialise the page and prepare the layout."""
@@ -84,7 +70,7 @@ class Clscplng(CcNotebookPage):
         self.cc_list = CcBasisList(
             self.cc_list_frame.inner_frame,
             self.target_p_ions,
-            cast(list[str], self.notebook.lucia_data['states']),
+            self.notebook.lucia_data['states'],
             self.sym.irrep[1:],
         )
 

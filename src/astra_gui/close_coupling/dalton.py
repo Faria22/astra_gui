@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from functools import partial
 from pathlib import Path
 from tkinter import ttk
-from typing import TYPE_CHECKING, TypedDict, cast
+from typing import TYPE_CHECKING, cast
 
 from astra_gui.utils.popup_module import save_success_popup
 from astra_gui.utils.required_fields_module import RequiredFields
@@ -21,20 +21,6 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class DaltonData(TypedDict):
-    """State propagated between Dalton configuration steps and outputs."""
-
-    basis: str
-    description: str
-    doubly_occupied: str
-    orbital_energies: str
-    state_sym: int
-    multiplicity: int
-    electrons: int
-    doubly: str
-    singly: str
-
-
 class Dalton(CcNotebookPage):
     """Notebook page for configuring and running Dalton calculations."""
 
@@ -42,20 +28,6 @@ class Dalton(CcNotebookPage):
     MOLECULE_FILE = Path('MOLECULE.INP')
     OUTPUT_FILE = Path('QC/DALTON.OUT')
     SCRIPT_COMMANDS = ['dalton.x']
-
-    def reset(self) -> None:
-        """Reset shared Dalton data defaults."""
-        self.notebook.dalton_data = {
-            'basis': '6-311G',
-            'description': '',
-            'doubly_occupied': '',
-            'orbital_energies': '',
-            'state_sym': 0,
-            'multiplicity': 0,
-            'electrons': 0,
-            'doubly': '',
-            'singly': '',
-        }
 
     def __init__(self, notebook: 'CreateCcNotebook') -> None:
         super().__init__(notebook, 'Initial Orbitals')
