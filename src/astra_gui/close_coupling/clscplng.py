@@ -218,7 +218,7 @@ class Clscplng(CcNotebookPage):
         }
 
         str_energy_shifts = [energy_shift or '0.0' for energy_shift in energy_shifts]
-        if not all(float(str_energy_shift) == 0 for str_energy_shift in str_energy_shifts):
+        if not all(np.isclose(float(str_energy_shift), 0.0, atol=1e-12) for str_energy_shift in str_energy_shifts):
             commands['energy_shifts'] = 'PARENT_ION_SHIFTS = ' + ' '.join(str_energy_shifts)
 
         if not self.full_basis_var.get():
@@ -330,7 +330,7 @@ class Clscplng(CcNotebookPage):
     def set_energy_shifts(self, parent_ions: list[str], energy_shifts: list[str]) -> None:
         """Update the energy-shift column for the selected ions."""
         for ion, energy_shift in zip(parent_ions, energy_shifts):
-            if float(energy_shift) == 0:
+            if np.isclose(float(energy_shift), 0.0, atol=1e-12):
                 continue
 
             values = list(self.ions_cl.item(ion, 'values'))
