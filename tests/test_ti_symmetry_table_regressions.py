@@ -26,11 +26,23 @@ class DummyTreeview:
         self.headings: dict[str, str] = {}
 
     def get_children(self) -> tuple[str, ...]:
-        """Return all current item ids."""
+        """Return all current item ids.
+
+        Returns
+        -------
+        tuple[str, ...]
+            Item identifiers currently stored in the table.
+        """
         return tuple(self.rows.keys())
 
     def insert(self, _parent: str, _index: str, values: tuple[Any, ...]) -> str:
-        """Insert a row and return its generated item id."""
+        """Insert a row and return its generated item id.
+
+        Returns
+        -------
+        str
+            Generated row identifier.
+        """
         item_id = f'i{len(self.rows)}'
         self.rows[item_id] = values
         return item_id
@@ -45,7 +57,13 @@ class DummyTreeview:
         self.rows.pop(item_id, None)
 
     def values(self) -> list[tuple[Any, ...]]:
-        """Return all row values in insertion order."""
+        """Return all row values in insertion order.
+
+        Returns
+        -------
+        list[tuple[Any, ...]]
+            Stored row values.
+        """
         return list(self.rows.values())
 
 
@@ -78,7 +96,14 @@ class _ConcreteTiPage(TiNotebookPage):
         """No-op for tests."""
 
     def get_commands(self) -> str:
-        """No-op for tests."""
+        """No-op for tests.
+
+        Returns
+        -------
+        str
+            Empty command string.
+        """
+        _ = self
         return ''
 
     def load(self) -> None:
@@ -91,42 +116,51 @@ class _ConcreteTiPage(TiNotebookPage):
         """No-op for tests."""
 
 
-def _make_ti_page_with_tables() -> _ConcreteTiPage:
-    """Create a TiNotebookPage object with fake treeviews."""
+def _make_ti_page_with_tables() -> tuple[_ConcreteTiPage, DummyTreeview, DummyTreeview, DummyTreeview]:
+    """Create a TiNotebookPage object with fake treeviews.
+
+    Returns
+    -------
+    tuple[_ConcreteTiPage, DummyTreeview, DummyTreeview, DummyTreeview]
+        Concrete TI page plus symmetry/computed/target table doubles.
+    """
     page = cast(_ConcreteTiPage, _ConcreteTiPage.__new__(_ConcreteTiPage))
-    page.syms_tv = cast(Any, DummyTreeview())
-    page.computed_syms_tv = cast(Any, DummyTreeview())
-    page.target_states_tv = cast(Any, DummyTreeview())
-    return page
+    syms_tv = DummyTreeview()
+    computed_syms_tv = DummyTreeview()
+    target_states_tv = DummyTreeview()
+    page.syms_tv = cast(Any, syms_tv)
+    page.computed_syms_tv = cast(Any, computed_syms_tv)
+    page.target_states_tv = cast(Any, target_states_tv)
+    return page, syms_tv, computed_syms_tv, target_states_tv
 
 
 def test_erase_cc_data_preserves_symmetry_table_rows() -> None:
     """Clearing CC data should not clear the static symmetry table."""
-    page = _make_ti_page_with_tables()
+    page, syms_tv, computed_syms_tv, target_states_tv = _make_ti_page_with_tables()
 
-    page.syms_tv.insert('', 'end', values=("A'",))
-    page.syms_tv.insert('', 'end', values=("A''",))
-    computed_iid = page.computed_syms_tv.insert('', 'end', values=('1A1',))
-    target_iid = page.target_states_tv.insert('', 'end', values=('1', 'A1', '-1.0', '0.0'))
+    syms_tv.insert('', 'end', values=("A'",))
+    syms_tv.insert('', 'end', values=("A''",))
+    computed_iid = computed_syms_tv.insert('', 'end', values=('1A1',))
+    target_iid = target_states_tv.insert('', 'end', values=('1', 'A1', '-1.0', '0.0'))
 
     TiNotebookPage.erase_cc_data(page)
 
-    assert page.syms_tv.values() == [("A'",), ("A''",)]
-    assert page.computed_syms_tv.values() == []
-    assert page.target_states_tv.values() == []
-    assert page.computed_syms_tv.deleted == [computed_iid]
-    assert page.target_states_tv.deleted == [target_iid]
+    assert syms_tv.values() == [("A'",), ("A''",)]
+    assert computed_syms_tv.values() == []
+    assert target_states_tv.values() == []
+    assert computed_syms_tv.deleted == [computed_iid]
+    assert target_states_tv.deleted == [target_iid]
 
 
 def test_print_irrep_populates_cs_irreps_when_new_sym() -> None:
     """`print_irrep(new_sym=True)` should display Cs irreps in the table."""
-    page = _make_ti_page_with_tables()
+    page, syms_tv, _, _ = _make_ti_page_with_tables()
     page.sym = Symmetry('Cs')
 
     TiNotebookPage.print_irrep(page, new_sym=True)
 
-    assert page.syms_tv.headings['Symmetry'] == 'Irreps of Cs'
-    assert page.syms_tv.values() == [("A'",), ("A''",)]
+    assert syms_tv.headings['Symmetry'] == 'Irreps of Cs'
+    assert syms_tv.values() == [("A'",), ("A''",)]
 
 
 def test_structural_erase_requests_irrep_refresh_with_new_sym() -> None:
@@ -156,7 +190,11 @@ def test_structural_erase_requests_irrep_refresh_with_new_sym() -> None:
     page.susc_dp_vars = cast(Any, [DummyVar() for _ in range(6)])
 
     cap_radii_calls: list[list[str]] = []
-    page.show_cap_radii = lambda radii: cap_radii_calls.append(radii)
+
+    def record_cap_radii(cap_radii: list[str]) -> None:
+        cap_radii_calls.append(cap_radii)
+
+    page.show_cap_radii = record_cap_radii
 
     Structural.erase(page)
 
