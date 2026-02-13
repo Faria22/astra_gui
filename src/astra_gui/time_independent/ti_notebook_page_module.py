@@ -71,6 +71,7 @@ class TiNotebookPage(NotebookPage['TimeIndependentNotebook'], ABC):
             self.syms_tv.column(col, width=w)
 
         self.syms_tv.pack(side=tk.LEFT)
+        self.print_irrep(new_sym=True)
 
         # CAP radii and strengths
         cap_frame = ScrollableFrame(left_frame, height=200)
@@ -176,7 +177,7 @@ class TiNotebookPage(NotebookPage['TimeIndependentNotebook'], ABC):
 
     def erase_cc_data(self) -> None:
         """Clear CAP and target state tables."""
-        for tv in [self.syms_tv, self.computed_syms_tv, self.target_states_tv]:
+        for tv in [self.computed_syms_tv, self.target_states_tv]:
             for iid in tv.get_children():
                 tv.delete(iid)
 
@@ -231,6 +232,7 @@ class TiNotebookPage(NotebookPage['TimeIndependentNotebook'], ABC):
     def print_irrep(self, new_sym: bool = False) -> None:
         """Refresh displayed irreps when the molecular symmetry changes."""
         if new_sym:
+            self.syms_tv.heading('Symmetry', text=f'Irreps of {self.sym.group}')
             for iid in self.syms_tv.get_children():
                 self.syms_tv.delete(iid)
             for irrep in self.sym.irrep[1:]:

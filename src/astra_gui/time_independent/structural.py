@@ -265,7 +265,7 @@ class Structural(TiNotebookPage):
     def erase(self) -> None:
         """Reset all structural configuration widgets."""
         self.erase_cc_data()
-        self.print_irrep()
+        self.print_irrep(new_sym=True)
 
         entries = [
             self.op_ket_sym_entry,
