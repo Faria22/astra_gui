@@ -320,8 +320,9 @@ class ScattStates(TiNotebookPage):
 
         ket_syms = self.unpack_all_symmetry(ket_sym.split(','))
         for ket_sym in ket_syms:
+            ket_sym_path = self.sym.convert_cs_irreps_to_letter(ket_sym)
             if not self.path_exists(
-                Path(f'store/CloseCoupling/{ket_sym}/Full/H_Fullc_Fullc_eval'),
+                Path(f'store/CloseCoupling/{ket_sym_path}/Full/H_Fullc_Fullc_eval'),
             ):
                 missing_required_calculation_popup('Diagonalization')
                 return ''

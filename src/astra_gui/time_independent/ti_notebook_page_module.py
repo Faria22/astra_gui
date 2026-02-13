@@ -291,7 +291,7 @@ class TiNotebookPage(NotebookPage['TimeIndependentNotebook'], ABC):
         computed_syms = []
         if computed_sym_folders:
             computed_syms = [str(c_sym.parts[-2]) for c_sym in computed_sym_folders]
-            computed_syms = [c_sym.replace('p', "'") for c_sym in computed_syms]
+            computed_syms = [self.sym.convert_cs_irreps_to_apostrophe(c_sym) for c_sym in computed_syms]
 
             computed_syms = sorted(computed_syms, key=itemgetter(0))  # Sorts the list based on the multiplicity
             computed_syms = sorted(

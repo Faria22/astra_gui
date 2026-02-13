@@ -66,3 +66,20 @@ def test_repr_and_equality_depend_on_group() -> None:
     assert symmetry == duplicate
     assert symmetry != other
     assert symmetry != object()
+
+
+def test_convert_cs_irreps_to_letter_and_apostrophe_for_cs() -> None:
+    """Cs labels should convert both ways between apostrophe and letter forms."""
+    symmetry = Symmetry('Cs')
+
+    assert symmetry.convert_cs_irreps_to_letter("1A',1A''") == '1Ap,1App'
+    assert symmetry.convert_cs_irreps_to_apostrophe('1Ap,1App') == "1A',1A''"
+
+
+def test_convert_cs_irreps_is_noop_for_non_cs_groups() -> None:
+    """Conversion helpers should leave non-Cs labels untouched."""
+    symmetry = Symmetry('C2v')
+    text = "1A',1A'',A1,B2,1Ap,1App"
+
+    assert symmetry.convert_cs_irreps_to_letter(text) == text
+    assert symmetry.convert_cs_irreps_to_apostrophe(text) == text

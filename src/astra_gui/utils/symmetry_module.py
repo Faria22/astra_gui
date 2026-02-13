@@ -175,6 +175,32 @@ class Symmetry:  # noqa: PLW1641
         }
         return table[self.group]
 
+    def convert_cs_irreps_to_letter(self, text: str) -> str:
+        """Convert Cs apostrophe labels to letter labels.
+
+        Returns
+        -------
+        str
+            ``A'``/``A''`` converted to ``Ap``/``App`` for ``Cs``; unchanged otherwise.
+        """
+        if self.group != 'Cs':
+            return text
+
+        return text.replace("A''", 'App').replace("A'", 'Ap')
+
+    def convert_cs_irreps_to_apostrophe(self, text: str) -> str:
+        """Convert Cs letter labels to apostrophe labels.
+
+        Returns
+        -------
+        str
+            ``Ap``/``App`` converted to ``A'``/``A''`` for ``Cs``; unchanged otherwise.
+        """
+        if self.group != 'Cs':
+            return text
+
+        return text.replace('App', "A''").replace('Ap', "A'")
+
     def mult(self, i_irrep: str, j_irrep: str) -> str:
         """Multiply two irreps and return the resulting representation.
 

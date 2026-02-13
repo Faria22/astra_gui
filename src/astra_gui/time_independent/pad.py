@@ -118,8 +118,9 @@ class Pad(TiNotebookPage):
 
         ket_syms = ket_sym.split(',')
         for ket_sym in ket_syms:
+            ket_sym_path = self.sym.convert_cs_irreps_to_letter(ket_sym)
             if not self.path_exists(
-                Path(f'store/CloseCoupling/{ket_sym}/Full/Scattering_States'),
+                Path(f'store/CloseCoupling/{ket_sym_path}/Full/Scattering_States'),
             ):
                 missing_required_calculation_popup('Scattering States')
                 return ''

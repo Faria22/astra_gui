@@ -238,20 +238,6 @@ class NotebookPage(ttk.Frame, ABC, Generic[Nb]):
         return packed_list
 
     @staticmethod
-    def convert_cs_irreps(string: str) -> str:
-        """Convert A' (A'') to Ap (App) or vice-versa.
-
-        Returns
-        -------
-        str
-            Converted representation string.
-        """
-        if "A'" in string:
-            return string.replace("A''", 'App').replace("A'", 'Ap')
-
-        return string.replace('App', "A''").replace('Ap', "A'")
-
-    @staticmethod
     def hover_widget(
         widget_class: type[ttk.Widget],
         frame: ttk.Frame,
@@ -479,7 +465,7 @@ class NotebookPage(ttk.Frame, ABC, Generic[Nb]):
             filled_content = '\n'.join(lines) + '\n'
 
         if convert_cs_irreps:
-            filled_content = self.convert_cs_irreps(filled_content)
+            filled_content = self.sym.convert_cs_irreps_to_letter(filled_content)
 
         if not new_file_name:
             new_file_name = file_name
@@ -740,7 +726,7 @@ class NotebookPage(ttk.Frame, ABC, Generic[Nb]):
             clean_lines.append(clean_line)
 
         if convert_cs_irreps:
-            clean_lines = [self.convert_cs_irreps(line) for line in clean_lines]
+            clean_lines = [self.sym.convert_cs_irreps_to_apostrophe(line) for line in clean_lines]
 
         return clean_lines
 

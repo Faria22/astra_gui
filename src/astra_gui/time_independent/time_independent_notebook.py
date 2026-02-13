@@ -63,7 +63,8 @@ class TimeIndependentNotebook(Notebook[TiNotebookPage]):
 
         assert self.controller.running_directory is not None, 'Running directory is not set.'
         for state_sym in state_syms:
-            base_path = self.controller.running_directory / f'store/CloseCoupling/{state_sym}/Full/'
+            state_sym_path = self.pages[0].sym.convert_cs_irreps_to_letter(state_sym)
+            base_path = self.controller.running_directory / f'store/CloseCoupling/{state_sym_path}/Full/'
 
             paths = []
             if self.controller.ssh_client:
